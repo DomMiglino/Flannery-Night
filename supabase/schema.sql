@@ -279,3 +279,34 @@ end;
 $$;
 
 grant execute on function public.admin_set_player_pin(text,text) to authenticated;
+
+-- Return only the authenticated player's own submitted votes, after PIN verification.
+create or replace function public.get_my_peer_votes(p_voter_id text, p_pin text)
+returns table (
+  target_id text,
+  vel_tuf smallint,
+  tir_pre smallint,
+  pass_rin smallint,
+  dri_rif smallint,
+  dif_rea smallint,
+  fis_pia smallint,
+  updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.verify_player_pin(p_voter_id, p_pin) then
+    raise exception 'Identificazione non valida';
+  end if;
+
+  return query
+    select v.target_id, v.vel_tuf, v.tir_pre, v.pass_rin, v.dri_rif,
+           v.dif_rea, v.fis_pia, v.updated_at
+    from public.peer_votes v
+    where v.voter_id = p_voter_id;
+end;
+$$;
+
+grant execute on function public.get_my_peer_votes(text,text) to anon, authenticated;
