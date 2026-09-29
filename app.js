@@ -25,7 +25,6 @@
 
   let data = loadData();
   let currentView = 'dashboard';
-  let rankingMode = 'power';
   let editingMatchId = null;
   let editingPlayerId = null;
 
@@ -135,43 +134,6 @@
     return out;
   }
 
-  // Rating Elo-like individuale basato esclusivamente su dati oggettivi di squadra.
-  // Il punteggio parte da 50; nessun MVP o voto soggettivo entra nel calcolo.
-  function computeObjectiveRatings(){
-    const rating = new Map(data.players.map(p => [p.id,50]));
-    const games = new Map(data.players.map(p => [p.id,0]));
-    const sorted = [...data.matches].sort((a,b) => a.date.localeCompare(b.date));
-    for(const m of sorted){
-      if(!m.teamA.length || !m.teamB.length) continue;
-      const avg = team => team.reduce((a,e)=>a+(rating.get(e.playerId)??50),0)/team.length;
-      const ra = avg(m.teamA), rb = avg(m.teamB);
-      const expectedA = 1/(1 + Math.pow(10,(rb-ra)/20));
-      const [sa,sb]=matchScore(m);
-      const actualA = sa>sb ? 1 : sa===sb ? .5 : 0;
-      const diff=Math.abs(sa-sb);
-      const margin = diff===0 ? 1 : Math.min(1.6,1+0.12*Math.max(0,diff-1));
-      const deltaBase = (actualA-expectedA)*margin;
-      m.teamA.forEach(e => {
-        const g=games.get(e.playerId)||0;
-        const k=6/Math.sqrt(1+g/5);
-        rating.set(e.playerId, Math.max(1,Math.min(99,(rating.get(e.playerId)??50)+k*deltaBase)));
-        games.set(e.playerId,g+1);
-      });
-      m.teamB.forEach(e => {
-        const g=games.get(e.playerId)||0;
-        const k=6/Math.sqrt(1+g/5);
-        rating.set(e.playerId, Math.max(1,Math.min(99,(rating.get(e.playerId)??50)-k*deltaBase)));
-        games.set(e.playerId,g+1);
-      });
-    }
-    const out = new Map();
-    data.players.forEach(p => {
-      const g=games.get(p.id)||0;
-      out.set(p.id,{rating:round1(rating.get(p.id)??50), games:g, confidence:Math.min(100,Math.round(g/10*100))});
-    });
-    return out;
-  }
-
   function advancedAggregates(){
     const agg = new Map(data.players.map(p => [p.id,{tracked:0,goals:0,assists:0,shotsOnTarget:0,keyPasses:0,dribbles:0,recoveries:0,duelsWon:0,saves:0}]));
     for(const m of data.matches){
@@ -251,23 +213,17 @@
   }
 
   function renderDashboard(){
-    const stats=deriveStats(), obj=computeObjectiveRatings();
+    const stats=deriveStats();
     const played=[...stats.values()].filter(x=>x.played>0);
     const totalGoals=data.matches.reduce((a,m)=>{const [x,y]=matchScore(m);return a+x+y},0);
     const leader=[...played].sort((a,b)=>b.power-a.power || b.points-a.points)[0];
     const scorer=[...played].sort((a,b)=>b.goals-a.goals || a.played-b.played)[0];
-    const rows=[...played].sort((a,b)=> rankingMode==='objective'
-      ? (obj.get(b.playerId).rating-obj.get(a.playerId).rating || b.played-a.played)
-      : (b.power-a.power || b.points-a.points || b.avgPoints-a.avgPoints || b.goals-a.goals));
+    const rows=[...played].sort((a,b)=>b.power-a.power || b.points-a.points || b.avgPoints-a.avgPoints || b.goals-a.goals);
     app.innerHTML=`
       <div class="toolbar">
         <div>
           <h2 style="margin:0 0 4px">Classifica</h2>
           <div class="muted">Calcolata automaticamente dalle ${data.matches.length} partite registrate.</div>
-        </div>
-        <div class="segmented">
-          <button data-rank="power" class="${rankingMode==='power'?'active':''}">Flannery Power</button>
-          <button data-rank="objective" class="${rankingMode==='objective'?'active':''}">Rating oggettivo</button>
         </div>
       </div>
       <div class="kpis">
