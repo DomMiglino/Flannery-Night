@@ -168,7 +168,7 @@ function uiSubmitVote(voterId, pin, targetId, values) {
 function setupFlanneryNight() {
   const ss = ss_();
 
-  const access = getOrCreateSheet_(FN.ACCESS_SHEET, ['playerId','name','role','salt','pinHash','active','updatedAt']);
+  const access = getOrCreateSheet_(FN.ACCESS_SHEET, ['playerId','name','role','salt','pinHash','pinOrigin','active','updatedAt']);
   const votes = getOrCreateSheet_(FN.VOTES_SHEET, ['voterId','targetId','velTuf','tirPre','passRin','driRif','difRea','fisPia','updatedAt']);
   const state = getOrCreateSheet_(FN.STATE_SHEET, ['key','value','updatedAt']);
   if (access.getLastRow() > 1) {
@@ -177,7 +177,7 @@ function setupFlanneryNight() {
 
   const rows = [];
   FN_PLAYERS.forEach(([id,name,role]) => {
-    rows.push([id,name,role,'','',true,new Date()]);
+    rows.push([id,name,role,'','','',true,new Date()]);
   });
 
   if (rows.length) access.getRange(2,1,rows.length,rows[0].length).setValues(rows);
@@ -220,6 +220,7 @@ function resetPlayerPin(playerId) {
 
   sh.getRange(rowIndex+1, idx.salt+1).clearContent();
   sh.getRange(rowIndex+1, idx.pinHash+1).clearContent();
+  if (idx.pinOrigin !== undefined) sh.getRange(rowIndex+1, idx.pinOrigin+1).clearContent();
   sh.getRange(rowIndex+1, idx.updatedAt+1).setValue(new Date());
   CacheService.getScriptCache().remove('fn_fail_' + String(playerId));
   return 'PIN azzerato. Il giocatore potrà crearne uno nuovo al prossimo accesso.';
@@ -257,6 +258,7 @@ function migrateToPlayerChosenPins() {
   for (let i=1;i<rows.length;i++) {
     sh.getRange(i+1, idx.salt+1).clearContent();
     sh.getRange(i+1, idx.pinHash+1).clearContent();
+    if (idx.pinOrigin !== undefined) sh.getRange(i+1, idx.pinOrigin+1).clearContent();
     sh.getRange(i+1, idx.updatedAt+1).setValue(new Date());
     CacheService.getScriptCache().remove('fn_fail_' + String(rows[i][idx.playerId]));
   }
@@ -315,21 +317,42 @@ function syncAccessNamesFromState_(state) {
   }
 }
 
+function ensurePinOriginColumn_() {
+  const sh = sheet_(FN.ACCESS_SHEET);
+  const values = sh.getDataRange().getValues();
+  if (!values.length) throw new Error('FN_ACCESS è vuoto.');
+  const idx = headerMap_(values[0]);
+  if (idx.pinOrigin !== undefined) return;
+
+  const activeCol = idx.active !== undefined ? idx.active + 1 : sh.getLastColumn() + 1;
+  sh.insertColumnBefore(activeCol);
+  sh.getRange(1, activeCol).setValue('pinOrigin');
+}
+
 function playerHasPin_(playerId) {
   if (!playerId) return false;
+  ensurePinOriginColumn_();
+
   const sh = sheet_(FN.ACCESS_SHEET);
   const rows = sh.getDataRange().getValues();
   const idx = headerMap_(rows[0]);
   const row = rows.find((r,i) => i>0 &&
     String(r[idx.playerId])===String(playerId) &&
     String(r[idx.active]).toLowerCase()!=='false');
+
   if (!row) return false;
-  return Boolean(String(row[idx.salt]||'').trim() && String(row[idx.pinHash]||'').trim());
+
+  // Only PINs explicitly created by the player in the webapp count as registered.
+  // Any old randomly generated salt/hash is treated as legacy and ignored.
+  return String(row[idx.pinOrigin]||'').trim().toLowerCase()==='user' &&
+    Boolean(String(row[idx.salt]||'').trim() && String(row[idx.pinHash]||'').trim());
 }
 
 function registerPlayerPin_(playerId,pin) {
   if (!playerId) throw new Error('Seleziona un giocatore.');
   if (!/^\d{6}$/.test(String(pin||''))) throw new Error('Il PIN deve contenere esattamente 6 cifre.');
+
+  ensurePinOriginColumn_();
 
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -344,14 +367,17 @@ function registerPlayerPin_(playerId,pin) {
     if (rowIndex < 1) throw new Error('Giocatore non valido.');
 
     const row = rows[rowIndex];
-    if (String(row[idx.salt]||'').trim() || String(row[idx.pinHash]||'').trim()) {
+    if (String(row[idx.pinOrigin]||'').trim().toLowerCase()==='user') {
       throw new Error('Questo giocatore ha già creato il proprio PIN.');
     }
 
+    // Overwrite any legacy random PIN left by the old setup.
     const salt = Utilities.getUuid();
     sh.getRange(rowIndex+1, idx.salt+1).setValue(salt);
     sh.getRange(rowIndex+1, idx.pinHash+1).setValue(hash_(String(pin),salt));
+    sh.getRange(rowIndex+1, idx.pinOrigin+1).setValue('user');
     sh.getRange(rowIndex+1, idx.updatedAt+1).setValue(new Date());
+    CacheService.getScriptCache().remove('fn_fail_' + String(playerId));
   } finally {
     lock.releaseLock();
   }
@@ -365,11 +391,13 @@ function verifyPlayerPin_(playerId,pin) {
   const failures = Number(cache.get(failKey) || 0);
   if (failures >= FN.PIN_FAILURE_LIMIT) return false;
 
+  ensurePinOriginColumn_();
   const sh = sheet_(FN.ACCESS_SHEET);
   const rows = sh.getDataRange().getValues();
   const idx = headerMap_(rows[0]);
   const row = rows.find((r,i) => i>0 && String(r[idx.playerId])===String(playerId) && String(r[idx.active]).toLowerCase()!=='false');
   if (!row) return false;
+  if (String(row[idx.pinOrigin]||'').trim().toLowerCase()!=='user') return false;
 
   const ok = timingSafeEqual_(String(row[idx.pinHash]), hash_(String(pin), String(row[idx.salt])));
   if (ok) {
