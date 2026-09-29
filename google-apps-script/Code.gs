@@ -32,13 +32,35 @@ const FN_PLAYERS = [
 
 function doGet(e) {
   try {
-    const action = (e && e.parameter && e.parameter.action) || 'health';
+    const params = (e && e.parameter) || {};
+
+    if (params.page === 'votes') {
+      return HtmlService
+        .createHtmlOutputFromFile('Votes')
+        .setTitle('Flannery Night · Votazioni')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+
+    const action = params.action || 'health';
+
     if (action === 'health') {
-      return json_({ok:true, service:'Flannery Night', version:2});
+      return json_({ok:true, service:'Flannery Night', version:3});
     }
+
     if (action === 'publicState') {
-      return json_(publicState_());
+      const payload = publicState_();
+      const prefix = String(params.prefix || '');
+
+      // JSONP is used only for public, non-sensitive aggregate data.
+      if (prefix && /^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(prefix)) {
+        return ContentService
+          .createTextOutput(prefix + '(' + JSON.stringify(payload) + ');')
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+
+      return json_(payload);
     }
+
     return json_({ok:false,error:'Azione non valida'});
   } catch (err) {
     return json_({ok:false,error:safeError_(err)});
@@ -95,6 +117,58 @@ function doPost(e) {
   } catch (err) {
     return json_({ok:false,error:safeError_(err)});
   }
+}
+
+
+/**
+ * Functions exposed only to the Apps Script Votes.html page through google.script.run.
+ * They avoid cross-origin fetch calls from GitHub Pages.
+ */
+function uiBootstrap() {
+  return {
+    players: FN_PLAYERS.map(([id,name,role]) => ({id,name,role}))
+  };
+}
+
+function uiPlayerPinStatus(playerId) {
+  return {hasPin: playerHasPin_(playerId)};
+}
+
+function uiRegisterPlayerPin(playerId, pin) {
+  registerPlayerPin_(playerId, pin);
+  return {ok:true};
+}
+
+function uiLogin(playerId, pin) {
+  requirePlayer_(playerId, pin);
+  return {
+    ok:true,
+    votes:getMyVotes_(playerId),
+    players:FN_PLAYERS.map(([id,name,role]) => ({id,name,role}))
+  };
+}
+
+function uiSubmitVote(voterId, pin, targetId, values) {
+  requirePlayer_(voterId, pin);
+
+  const body = {
+    voterId:voterId,
+    targetId:targetId,
+    velTuf:Number(values && values.velTuf),
+    tirPre:Number(values && values.tirPre),
+    passRin:Number(values && values.passRin),
+    driRif:Number(values && values.driRif),
+    difRea:Number(values && values.difRea),
+    fisPia:Number(values && values.fisPia)
+  };
+
+  validateVote_(body);
+  upsertVote_(body);
+
+  return {
+    ok:true,
+    ratings:getPeerRatingMedians_()
+  };
 }
 
 /**
