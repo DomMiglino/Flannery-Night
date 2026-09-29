@@ -96,12 +96,27 @@
     return out;
   }
 
+  function publicJsonp(){
+    return new Promise((resolve,reject)=>{
+      const url=window.FLANNERY_API_URL||'';
+      if(!url){reject(new Error('API non configurata'));return;}
+      const cb='flanneryJsonp_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+      const s=document.createElement('script');
+      const timer=setTimeout(()=>{cleanup();reject(new Error('Timeout API'));},10000);
+      function cleanup(){clearTimeout(timer);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s);}
+      window[cb]=(payload)=>{cleanup();payload&&payload.ok?resolve(payload):reject(new Error(payload?.error||'Errore API'));};
+      s.onerror=()=>{cleanup();reject(new Error('Errore caricamento API'));};
+      s.src=url+(url.includes('?')?'&':'?')+'action=publicState&prefix='+encodeURIComponent(cb)+'&_='+Date.now();
+      document.head.appendChild(s);
+    });
+  }
+
   async function initBackend(){
     const url=window.FLANNERY_API_URL||'';
     if(!url) return;
     db=true;
     try{
-      const r=await apiPost({action:'publicState'});
+      const r=await publicJsonp();
       if(r.state && r.state.players && r.state.matches) data=r.state;
       peerRatings=new Map((r.ratings||[]).map(x=>[x.player_id,x]));
     }catch(e){
@@ -111,7 +126,7 @@
 
   async function loadPeerRatings(){
     if(!db)return;
-    const r=await apiPost({action:'publicState'});
+    const r=await publicJsonp();
     peerRatings=new Map((r.ratings||[]).map(x=>[x.player_id,x]));
   }
 
@@ -259,7 +274,7 @@
         document.getElementById('registerPin').onclick=registerPin;
       }
     }catch(e){
-      area.innerHTML='<div class="notice warn">Impossibile verificare lo stato del PIN. Riprova.</div>';
+      area.innerHTML='<div class="notice warn"></div>';
     }
   }
 
@@ -297,68 +312,15 @@
   }
 
   function renderVotes(){
-    if(!db){
-      app.innerHTML=`<div class="card pad"><h2>Votazioni</h2><div class="notice warn">Il sistema di voto condiviso è pronto nell'interfaccia, ma il database non è ancora collegato. Appena viene configurato, questa pagina permetterà l'identificazione con PIN e il salvataggio centralizzato dei voti.</div></div>`;
+    const base=window.FLANNERY_API_URL||'';
+    if(!base){
+      app.innerHTML='<div class="card pad"><h2>Votazioni</h2><div class="notice warn">Sistema votazioni non configurato.</div></div>';
       return;
     }
-    if(!voterSession){
-      app.innerHTML=loginForm();
-      document.getElementById('voterSelect').onchange=renderPinAccess;
-      return;
-    }
-    const me=playerById(voterSession.id);
-    const targets=[...data.players].filter(p=>p.active&&p.id!==voterSession.id).sort((a,b)=>a.name.localeCompare(b.name));
+    const src=base+(base.includes('?')?'&':'?')+'page=votes';
     app.innerHTML=`
-      <div class="toolbar"><div><h2 style="margin:0">Votazioni</h2><div class="muted">Hai effettuato l'accesso come <strong>${esc(me?.name||'')}</strong>. Non puoi votare te stesso.</div></div><button id="logoutVote" class="secondary">Esci</button></div>
-      <div class="notice">Valuta ogni giocatore da 1 a 99. Puoi tornare in qualsiasi momento e modificare i voti già inviati.</div>
-      <div class="grid-2">${targets.map(voteCard).join('')}</div>`;
-    document.getElementById('logoutVote').onclick=()=>{voterSession=null;myVotes.clear();renderVotes();};
-    app.querySelectorAll('.save-vote').forEach(btn=>btn.onclick=()=>saveVote(btn.closest('.vote-card')));
-  }
-
-  async function voteLogin(){
-    const id=document.getElementById('voterSelect').value;
-    const pin=document.getElementById('voterPin').value.trim();
-    if(!id||!/^\d{6}$/.test(pin)){toast('Inserisci il PIN personale di 6 cifre');return;}
-    const btn=document.getElementById('loginVote');btn.disabled=true;btn.textContent='Verifica...';
-    try{
-      const vr=await apiPost({action:'verifyPlayer',playerId:id,pin});
-      if(!vr.ok){throw new Error('Identificazione non valida');}
-      voterSession={id,pin};
-      const mv=await apiPost({action:'myVotes',playerId:id,pin});
-      myVotes=new Map((mv.votes||[]).map(x=>[x.target_id,x]));
-      renderVotes();
-    }catch(e){
-      btn.disabled=false;btn.textContent='Accedi alle votazioni';toast('Giocatore o PIN non validi');
-    }
-  }
-
-  async function saveVote(card){
-    const target=card.dataset.target;
-    const vals={};
-    let valid=true;
-    card.querySelectorAll('[data-attr]').forEach(inp=>{
-      const n=Number(inp.value);
-      if(!Number.isInteger(n)||n<1||n>99)valid=false;
-      vals[inp.dataset.attr]=n;
-    });
-    if(!valid){toast('Inserisci tutti i voti con valori interi da 1 a 99');return;}
-    const btn=card.querySelector('.save-vote');btn.disabled=true;btn.textContent='Salvataggio...';
-    try{
-      const out=await apiPost({
-        action:'submitVote',
-        voterId:voterSession.id,pin:voterSession.pin,targetId:target,
-        velTuf:vals.vel_tuf,tirPre:vals.tir_pre,passRin:vals.pass_rin,
-        driRif:vals.dri_rif,difRea:vals.dif_rea,fisPia:vals.fis_pia
-      });
-      btn.disabled=false;btn.textContent='Salva voto';
-      myVotes.set(target,{target_id:target,...vals});
-      peerRatings=new Map((out.ratings||[]).map(x=>[x.player_id,x]));
-      toast('Voto salvato');
-      renderVotes();
-    }catch(e){
-      btn.disabled=false;btn.textContent='Salva voto';toast(e.message||'Salvataggio non riuscito');
-    }
+      <div class="toolbar"><div><h2 style="margin:0">Votazioni</h2><div class="muted">Area protetta per la creazione del PIN e l'invio dei voti.</div></div></div>
+      <iframe title="Votazioni Flannery Night" src="${esc(src)}" style="width:100%;height:1500px;border:0;border-radius:18px;background:#0f1713"></iframe>`;
   }
 
   document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
