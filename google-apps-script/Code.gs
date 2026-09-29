@@ -1,14 +1,3 @@
-/**
- * FLANNERY NIGHT - Google Apps Script backend
- *
- * Deploy as Web App:
- *   Execute as: Me
- *   Who has access: Anyone
- *
- * The public GitHub Pages app uses this script as its only write endpoint.
- * Raw votes and PIN hashes never need to be published on GitHub.
- */
-
 const FN = {
   SPREADSHEET_ID: '1HovZP5Owurvko_mnl2UeG08C38_HyytLKWSz8xx2BDw',
   ACCESS_SHEET: 'FN_ACCESS',
