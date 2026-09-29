@@ -113,22 +113,59 @@ function doPost(e) {
  * Functions exposed only to the Apps Script Votes.html page through google.script.run.
  * They avoid cross-origin fetch calls from GitHub Pages.
  */
+function ensureStorage_() {
+  const ss = ss_();
+
+  let access = ss.getSheetByName(FN.ACCESS_SHEET);
+  if (!access) {
+    access = ss.insertSheet(FN.ACCESS_SHEET);
+    access.getRange(1,1,1,8).setValues([['playerId','name','role','salt','pinHash','pinOrigin','active','updatedAt']]);
+  }
+
+  if (access.getLastRow() <= 1) {
+    const rows = FN_PLAYERS.map(([id,name,role]) => [id,name,role,'','','',true,new Date()]);
+    if (rows.length) access.getRange(2,1,rows.length,rows[0].length).setValues(rows);
+  }
+
+  let votes = ss.getSheetByName(FN.VOTES_SHEET);
+  if (!votes) {
+    votes = ss.insertSheet(FN.VOTES_SHEET);
+    votes.getRange(1,1,1,9).setValues([['voterId','targetId','velTuf','tirPre','passRin','driRif','difRea','fisPia','updatedAt']]);
+  }
+
+  let state = ss.getSheetByName(FN.STATE_SHEET);
+  if (!state) {
+    state = ss.insertSheet(FN.STATE_SHEET);
+    state.getRange(1,1,1,3).setValues([['key','value','updatedAt']]);
+  }
+
+  try { access.hideSheet(); } catch (_) {}
+  try { votes.hideSheet(); } catch (_) {}
+  try { state.hideSheet(); } catch (_) {}
+
+  return true;
+}
+
 function uiBootstrap() {
+  ensureStorage_();
   return {
     players: FN_PLAYERS.map(([id,name,role]) => ({id,name,role}))
   };
 }
 
 function uiPlayerPinStatus(playerId) {
+  ensureStorage_();
   return {hasPin: playerHasPin_(playerId)};
 }
 
 function uiRegisterPlayerPin(playerId, pin) {
+  ensureStorage_();
   registerPlayerPin_(playerId, pin);
   return {ok:true};
 }
 
 function uiLogin(playerId, pin) {
+  ensureStorage_();
   requirePlayer_(playerId, pin);
   return {
     ok:true,
@@ -138,6 +175,7 @@ function uiLogin(playerId, pin) {
 }
 
 function uiSubmitVote(voterId, pin, targetId, values) {
+  ensureStorage_();
   requirePlayer_(voterId, pin);
 
   const body = {
@@ -270,6 +308,7 @@ function migrateToPlayerChosenPins() {
 }
 
 function publicState_() {
+  ensureStorage_();
   return {
     ok:true,
     state:getState_(),
@@ -330,6 +369,7 @@ function ensurePinOriginColumn_() {
 }
 
 function playerHasPin_(playerId) {
+  ensureStorage_();
   if (!playerId) return false;
   ensurePinOriginColumn_();
 
