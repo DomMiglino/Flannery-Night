@@ -16,7 +16,6 @@
 
   let data = JSON.parse(JSON.stringify(window.FLANNERY_INITIAL_DATA));
   let currentView = 'dashboard';
-  let rankingMode = 'power';
   let peerRatings = new Map();
   let db = null;
   let voterSession = null;
@@ -84,27 +83,6 @@
     return out;
   }
 
-  function computeObjectiveRatings(){
-    const rating=new Map(data.players.map(p=>[p.id,50]));
-    const games=new Map(data.players.map(p=>[p.id,0]));
-    [...data.matches].sort((a,b)=>a.date.localeCompare(b.date)).forEach(m=>{
-      if(!m.teamA.length||!m.teamB.length)return;
-      const avg=t=>t.reduce((s,e)=>s+(rating.get(e.playerId)??50),0)/t.length;
-      const ra=avg(m.teamA),rb=avg(m.teamB);
-      const expA=1/(1+Math.pow(10,(rb-ra)/20));
-      const [sa,sb]=matchScore(m);
-      const actA=sa>sb?1:sa===sb?.5:0;
-      const diff=Math.abs(sa-sb);
-      const margin=diff===0?1:Math.min(1.6,1+.12*Math.max(0,diff-1));
-      const delta=(actA-expA)*margin;
-      m.teamA.forEach(e=>{const g=games.get(e.playerId)||0,k=6/Math.sqrt(1+g/5);rating.set(e.playerId,(rating.get(e.playerId)||50)+k*delta);games.set(e.playerId,g+1);});
-      m.teamB.forEach(e=>{const g=games.get(e.playerId)||0,k=6/Math.sqrt(1+g/5);rating.set(e.playerId,(rating.get(e.playerId)||50)-k*delta);games.set(e.playerId,g+1);});
-    });
-    const out=new Map();
-    data.players.forEach(p=>out.set(p.id,{rating:round1(rating.get(p.id)||50),games:games.get(p.id)||0}));
-    return out;
-  }
-
   async function apiPost(payload){
     const url=window.FLANNERY_API_URL||'';
     if(!url) throw new Error('API non configurata');
@@ -161,21 +139,15 @@
   }
 
   function renderDashboard(){
-    const stats=deriveStats(),obj=computeObjectiveRatings();
+    const stats=deriveStats();
     const played=[...stats.values()].filter(x=>x.played);
-    const rows=[...played].sort((a,b)=>rankingMode==='objective'
-      ? obj.get(b.playerId).rating-obj.get(a.playerId).rating
-      : b.power-a.power||b.points-a.points||b.avgPoints-a.avgPoints||b.goals-a.goals);
+    const rows=[...played].sort((a,b)=>b.power-a.power||b.points-a.points||b.avgPoints-a.avgPoints||b.goals-a.goals);
     const goals=data.matches.reduce((t,m)=>{const [a,b]=matchScore(m);return t+a+b},0);
     const leader=[...played].sort((a,b)=>b.power-a.power)[0];
     const scorer=[...played].sort((a,b)=>b.goals-a.goals)[0];
     app.innerHTML=`
       <div class="toolbar">
         <div><h2 style="margin:0">Classifica</h2><div class="muted">Versione pubblica in sola lettura.</div></div>
-        <div class="segmented">
-          <button data-rank="power" class="${rankingMode==='power'?'active':''}">Flannery Power</button>
-          <button data-rank="objective" class="${rankingMode==='objective'?'active':''}">Rating prestazionale</button>
-        </div>
       </div>
       <div class="kpis">
         <div class="kpi"><div class="label">Partite</div><div class="value">${data.matches.length}</div></div>
@@ -184,15 +156,14 @@
         <div class="kpi"><div class="label">Capocannoniere</div><div class="value">${scorer?esc(playerName(scorer.playerId)):'-'}</div></div>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>#</th><th class="name">Giocatore</th><th>G</th><th>V</th><th>P</th><th>S</th><th>Gol</th><th>Media gol</th><th>Punti</th><th>Media pt</th><th>Forma</th><th>MVP</th><th>Critica</th><th>${rankingMode==='objective'?'Rating prest.':'Power'}</th></tr></thead>
+        <thead><tr><th>#</th><th class="name">Giocatore</th><th>G</th><th>V</th><th>P</th><th>S</th><th>Gol</th><th>Media gol</th><th>Punti</th><th>Media pt</th><th>Forma</th><th>MVP</th><th>Critica</th><th>Power</th></tr></thead>
         <tbody>${rows.map((x,i)=>`<tr>
           <td class="rank">${i+1}</td><td class="name"><strong>${esc(playerName(x.playerId))}</strong></td>
           <td>${x.played}</td><td>${x.wins}</td><td>${x.draws}</td><td>${x.losses}</td><td>${x.goals}</td><td>${fmt1(x.avgGoals)}</td><td>${x.points}</td><td>${fmt1(x.avgPoints)}</td>
           <td>${formBadge(x)}</td><td>${x.mvp}</td><td>${x.critica}</td>
-          <td class="${rankingMode==='objective'?'objective':'power'}">${rankingMode==='objective'?fmt1(obj.get(x.playerId).rating):fmt1(x.power)}</td>
+          <td class="power">${fmt1(x.power)}</td>
         </tr>`).join('')}</tbody>
       </table></div>`;
-    app.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{rankingMode=b.dataset.rank;renderDashboard();});
   }
 
   function renderMatches(){
@@ -248,7 +219,7 @@
     app.innerHTML=`
       <div class="card pad">
         <h2>Rating</h2>
-        <p>La versione pubblica separa due concetti. Il <strong>rating prestazionale</strong> della classifica deriva dai risultati delle squadre e non usa giudizi manuali. Il <strong>rating tecnico del giocatore</strong>, invece, deriva esclusivamente dai voti anonimi assegnati dagli altri calciatori.</p>
+        <p>Il <strong>Rating tecnico del giocatore</strong> deriva esclusivamente dai voti anonimi assegnati dagli altri calciatori. Nessun risultato di squadra, MVP o altro indicatore entra nel Rating.</p>
         <p>Ogni votante può valutare tutti tranne sé stesso sui sei attributi originari: VEL/TUF, TIR/PRE, PASS/RIN, DRI/RIF, DIF/REA e FIS/PIA. Per ogni giocatore vengono pubblicate soltanto le medie aggregate.</p>
         <p>L'Overall è calcolato sulle medie con le stesse ponderazioni per ruolo già adottate nel foglio originale.</p>
         <div class="notice warn">I voti individuali non sono pubblici. Un giocatore può aggiornare i propri voti, ma esiste una sola valutazione valida per ogni coppia votante → giocatore.</div>
