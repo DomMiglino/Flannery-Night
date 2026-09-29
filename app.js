@@ -232,11 +232,7 @@
         <div class="kpi"><div class="label">Leader Power</div><div class="value">${leader?esc(playerName(leader.playerId)):'-'}</div></div>
         <div class="kpi"><div class="label">Capocannoniere</div><div class="value">${scorer?`${esc(playerName(scorer.playerId))} · ${scorer.goals}`:'-'}</div></div>
       </div>
-      <div class="notice ${rankingMode==='objective'?'warn':''}">
-        ${rankingMode==='power'
-          ? 'Il <strong>Flannery Power Score</strong> replica il foglio: Punti + MVP × max(Media punti, 1). La giocata della critica resta una statistica separata.'
-          : 'Il <strong>rating oggettivo</strong> esclude MVP, giocata della critica e voti tecnici. Parte da 50 e si aggiorna in stile Elo in base a risultato, forza corrente delle due squadre e margine reti. Con poche partite va letto insieme alla confidenza.'}
-      </div>
+      <div class="notice">La classifica usa il Flannery Power. Il Rating tecnico dei giocatori deriva invece soltanto dalle votazioni degli altri giocatori nella versione pubblica.</div>
       <div class="table-wrap">
         <table>
           <thead><tr>
@@ -248,12 +244,11 @@
               <td class="rank">${i+1}</td>
               <td class="name">${nationImg(p)} <strong>${esc(p.name)}</strong> <span class="muted">${esc(p.role||'')}</span></td>
               <td>${x.played}</td><td>${x.wins}</td><td>${x.draws}</td><td>${x.losses}</td><td>${x.goals}</td><td>${x.ownGoals}</td><td>${fmt1(x.avgGoals)}</td><td>${x.points}</td><td>${fmt1(x.avgPoints)}</td>
-              <td>${esc(x.formText)}</td><td>${formBadge(x)}</td><td>${x.mvp}</td><td>${x.critica}</td><td class="power">${fmt1(x.power)}</td><td class="objective">${fmt1(o.rating)}</td><td>${o.confidence}%</td>
+              <td>${esc(x.formText)}</td><td>${formBadge(x)}</td><td>${x.mvp}</td><td>${x.critica}</td><td class="power">${fmt1(x.power)}</td>
             </tr>`;
           }).join('')}</tbody>
         </table>
       </div>`;
-    app.querySelectorAll('[data-rank]').forEach(b=>b.addEventListener('click',()=>{rankingMode=b.dataset.rank;renderDashboard()}));
   }
 
 
@@ -408,16 +403,16 @@
   }
 
   function renderPlayers(){
-    const stats=deriveStats(), obj=computeObjectiveRatings(), profiles=objectiveProfiles();
+    const stats=deriveStats(), profiles=objectiveProfiles();
     const ps=[...data.players].sort((a,b)=>(b.active!==false)-(a.active!==false) || (computeLegacyOvr(b)||0)-(computeLegacyOvr(a)||0) || a.name.localeCompare(b.name,'it'));
     app.innerHTML=`
       <div class="toolbar"><div><h2 style="margin:0 0 4px">Giocatori</h2><div class="muted">Anagrafica e valori tecnici del foglio originale, affiancati al rating automatico.</div></div><button id="newPlayer" class="primary">+ Giocatore</button></div>
-      <div class="notice warn">I sei valori del foglio Excel restano disponibili per compatibilità, ma sono <strong>input manuali</strong>. Il rating oggettivo non li usa.</div>
+      <div class="notice warn">I sei valori manuali del foglio Excel restano disponibili solo nell’area admin per compatibilità storica. Il Rating pubblico deriva esclusivamente dalle votazioni degli altri giocatori.</div>
       <div class="player-grid">${ps.map(p=>{
-        const ovr=computeLegacyOvr(p), o=obj.get(p.id), s=stats.get(p.id), prof=profiles.get(p.id);
+        const ovr=computeLegacyOvr(p), s=stats.get(p.id), prof=profiles.get(p.id);
         return `<div class="card player-card" style="${p.active===false?'opacity:.55':''}">
           <div class="player-top"><div><div class="role">${esc(p.role||'SENZA RUOLO')} · ${esc(ROLE_LABELS[p.role]||'')}</div><div class="player-name">${nationImg(p)} ${esc(p.name)}</div><div class="muted">${p.active===false?'Non attivo':`${s.played} partite · ${s.goals} gol`}</div></div><button class="secondary small" data-player-edit="${p.id}">Modifica</button></div>
-          <div class="rating-pair"><div class="rating-box"><div class="muted">OVR Excel</div><div class="num">${ovr??'—'}</div></div><div class="rating-box"><div class="muted">Rating obj.</div><div class="num objective">${fmt1(o.rating)}</div><div class="muted">conf. ${o.confidence}%</div></div></div>
+          <div class="rating-pair"><div class="rating-box"><div class="muted">OVR Excel</div><div class="num">${ovr??'—'}</div></div></div>
           <div class="attrs">${Object.entries(ATTR_LABELS).map(([k,l])=>`<div class="attr"><span>${l}</span>${p.legacy?.[k]??'—'}</div>`).join('')}</div>
           ${prof?`<div class="muted" style="margin-top:9px">Profilo eventi: ${prof.tracked} partite tracciate</div>`:''}
         </div>`;
@@ -467,10 +462,6 @@
           <p><span class="code">Power = Punti + MVP × max(Media punti, 1)</span></p>
           <p class="muted">La “Giocata della Critica” viene conteggiata ma non aumenta il Power Score. L’asterisco nel rendimento identifica l’MVP di quella squadra nella partita.</p>
         </div>
-        <div class="card pad method-section"><h3>2. Rating oggettivo · senza voti</h3><p>Ogni giocatore parte da 50. A ogni partita si stima la probabilità di vittoria dalla media del rating dei due gruppi, poi il rating viene aggiornato in base a risultato e differenza reti.</p>
-          <p><span class="code">atteso = 1 / (1 + 10^((RB−RA)/20))</span></p>
-          <p class="muted">MVP, “critica”, OVR manuale e gol individuali non entrano nel rating base, così il modello non favorisce automaticamente gli attaccanti. La confidenza cresce con le presenze.</p>
-        </div>
       </div>
       <div class="card pad method-section"><h3>OVR originale per ruolo</h3><div class="table-wrap"><table class="weight-table"><thead><tr><th>Ruolo</th>${Object.values(ATTR_LABELS).map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${Object.entries(OVR_WEIGHTS).map(([role,w])=>`<tr><td><strong>${role}</strong> · ${esc(ROLE_LABELS[role])}</td>${Object.keys(ATTR_LABELS).map(k=>`<td>${Math.round(w[k]*100)}%</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="muted">Come nell’Excel, il risultato è arrotondato per eccesso. Questi valori sono mantenuti perché fanno parte del sistema attuale, ma non sono oggettivi se i sei input vengono assegnati “a occhio”.</p></div>
       <div class="card pad method-section"><h3>Come rendere davvero oggettivi i valori tecnici</h3><p>Con i soli dati attuali non è possibile stimare in modo credibile passaggio, dribbling, difesa, riflessi o fisico. La soluzione meno arbitraria è registrare <strong>eventi contabili</strong>, non voti.</p>
@@ -484,7 +475,7 @@
         </div>
         <p style="margin-bottom:0">Nel modulo partita questi dati sono <strong>facoltativi</strong>. Partite con dati tecnici tracciati: <strong>${tracked}</strong>. Quando ce ne saranno abbastanza, l’app genera profili normalizzati rispetto al vostro gruppo, con regressione verso la media nelle prime partite.</p>
       </div>
-      <div class="notice warn"><strong>Limite statistico attuale:</strong> avete solo ${data.matches.length} partite. Il rating oggettivo è già calcolabile, ma non va interpretato come misura stabile della bravura finché ciascun giocatore non accumula un numero sufficiente di presenze e combinazioni di compagni/avversari.</div>`;
+      <div class="notice"><strong>Rating tecnico:</strong> nella versione pubblica è calcolato esclusivamente come media delle valutazioni ricevute dagli altri giocatori, con Overall ponderato in base al ruolo.</div>`;
   }
 
   function renderBackup(){
@@ -508,9 +499,9 @@
   }
   function csvCell(v){ const s=String(v??''); return /[;"\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }
   function exportStandingsCsv(){
-    const stats=deriveStats(),obj=computeObjectiveRatings();
+    const stats=deriveStats();
     const rows=[...stats.values()].filter(x=>x.played).sort((a,b)=>b.power-a.power);
-    const header=['Nome','Giocate','Vinte','Pareggiate','Perse','Gol','Autogol','Media gol','Punti','Media punti','Rendimento','MVP','Critica','Power','Rating oggettivo','Confidenza'];
+    const header=['Nome','Giocate','Vinte','Pareggiate','Perse','Gol','Autogol','Media gol','Punti','Media punti','Rendimento','MVP','Critica','Power'];
     const body=rows.map(x=>{const o=obj.get(x.playerId);return [playerName(x.playerId),x.played,x.wins,x.draws,x.losses,x.goals,x.ownGoals,x.avgGoals,x.points,x.avgPoints,x.formText,x.mvp,x.critica,x.power,o.rating,o.confidence+'%']});
     downloadBlob('flannery-classifica.csv','\ufeff'+[header,...body].map(r=>r.map(csvCell).join(';')).join('\n'),'text/csv;charset=utf-8');
   }
