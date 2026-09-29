@@ -229,12 +229,60 @@
   function loginForm(){
     const options=[...data.players].filter(p=>p.active).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
     return `<div class="card form-card" style="max-width:620px">
-      <h2>Identificati come giocatore</h2>
-      <p class="muted">Serve il PIN personale per impedire che qualcuno voti usando il nome di un altro giocatore.</p>
+      <h2>Accesso giocatore</h2>
+      <p class="muted">Se è il tuo primo accesso potrai creare il tuo PIN personale di 6 cifre. Dagli accessi successivi userai sempre lo stesso PIN.</p>
       <div class="field"><label>Giocatore</label><select id="voterSelect"><option value="">Seleziona...</option>${options}</select></div>
-      <div class="field"><label>PIN personale</label><input id="voterPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN"></div>
-      <button id="loginVote" class="primary">Accedi alle votazioni</button>
+      <div id="pinArea"></div>
     </div>`;
+  }
+
+  async function renderPinAccess(){
+    const id=document.getElementById('voterSelect')?.value;
+    const area=document.getElementById('pinArea');
+    if(!area)return;
+    if(!id){area.innerHTML='';return;}
+
+    area.innerHTML='<div class="muted">Controllo accesso...</div>';
+    try{
+      const st=await apiPost({action:'playerPinStatus',playerId:id});
+      if(st.hasPin){
+        area.innerHTML=`
+          <div class="field"><label>PIN personale</label><input id="voterPin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="6 cifre"></div>
+          <button id="loginVote" class="primary">Accedi alle votazioni</button>`;
+        document.getElementById('loginVote').onclick=voteLogin;
+      }else{
+        area.innerHTML=`
+          <div class="notice">Primo accesso: crea adesso il tuo PIN personale. Dovrà essere composto da <strong>6 cifre</strong>.</div>
+          <div class="field"><label>Crea PIN</label><input id="newPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="6 cifre"></div>
+          <div class="field"><label>Conferma PIN</label><input id="newPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="Ripeti il PIN"></div>
+          <button id="registerPin" class="primary">Crea PIN e accedi</button>`;
+        document.getElementById('registerPin').onclick=registerPin;
+      }
+    }catch(e){
+      area.innerHTML='<div class="notice warn">Impossibile verificare lo stato del PIN. Riprova.</div>';
+    }
+  }
+
+  async function registerPin(){
+    const id=document.getElementById('voterSelect').value;
+    const pin=document.getElementById('newPin').value.trim();
+    const pin2=document.getElementById('newPin2').value.trim();
+    if(!/^\d{6}$/.test(pin)){toast('Il PIN deve contenere esattamente 6 cifre');return;}
+    if(pin!==pin2){toast('I due PIN non coincidono');return;}
+
+    const btn=document.getElementById('registerPin');
+    btn.disabled=true;btn.textContent='Creazione...';
+    try{
+      await apiPost({action:'registerPlayerPin',playerId:id,pin});
+      voterSession={id,pin};
+      myVotes=new Map();
+      toast('PIN creato correttamente');
+      renderVotes();
+    }catch(e){
+      btn.disabled=false;btn.textContent='Crea PIN e accedi';
+      toast(e.message||'Creazione PIN non riuscita');
+      await renderPinAccess();
+    }
   }
 
   function voteCard(target){
@@ -255,7 +303,7 @@
     }
     if(!voterSession){
       app.innerHTML=loginForm();
-      document.getElementById('loginVote').onclick=voteLogin;
+      document.getElementById('voterSelect').onchange=renderPinAccess;
       return;
     }
     const me=playerById(voterSession.id);
@@ -271,7 +319,7 @@
   async function voteLogin(){
     const id=document.getElementById('voterSelect').value;
     const pin=document.getElementById('voterPin').value.trim();
-    if(!id||!pin){toast('Seleziona il giocatore e inserisci il PIN');return;}
+    if(!id||!/^\d{6}$/.test(pin)){toast('Inserisci il PIN personale di 6 cifre');return;}
     const btn=document.getElementById('loginVote');btn.disabled=true;btn.textContent='Verifica...';
     try{
       const vr=await apiPost({action:'verifyPlayer',playerId:id,pin});
