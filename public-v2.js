@@ -201,8 +201,8 @@
   function renderPlayers(){
     const players=[...data.players].filter(p=>p.active).sort((a,b)=>a.name.localeCompare(b.name));
     app.innerHTML=`
-      <div class="toolbar"><div><h2 style="margin:0">Giocatori</h2><div class="muted">I valori tecnici mostrati sono esclusivamente le medie anonime dei voti ricevuti dagli altri giocatori.</div></div></div>
-      <div class="notice">Nessun valore tecnico inserito dagli amministratori viene mostrato in questa versione. L'Overall usa le stesse ponderazioni per ruolo della classifica originale, applicate alle medie dei voti della community.</div>
+      <div class="toolbar"><div><h2 style="margin:0">Giocatori</h2><div class="muted">I valori tecnici mostrati sono esclusivamente le mediane anonime dei voti ricevuti dagli altri giocatori.</div></div></div>
+      <div class="notice">Nessun valore tecnico inserito dagli amministratori viene mostrato in questa versione. L'Overall usa le stesse ponderazioni per ruolo della classifica originale, applicate alle mediane dei voti della community.</div>
       <div class="player-grid">${players.map(p=>{
         const r=peerRatings.get(p.id);
         const voters=Number(r?.voters||0);
@@ -220,8 +220,8 @@
       <div class="card pad">
         <h2>Rating</h2>
         <p>Il <strong>Rating tecnico del giocatore</strong> deriva esclusivamente dai voti anonimi assegnati dagli altri calciatori. Nessun risultato di squadra, MVP o altro indicatore entra nel Rating.</p>
-        <p>Ogni votante può valutare tutti tranne sé stesso sui sei attributi originari: VEL/TUF, TIR/PRE, PASS/RIN, DRI/RIF, DIF/REA e FIS/PIA. Per ogni giocatore vengono pubblicate soltanto le medie aggregate.</p>
-        <p>L'Overall è calcolato sulle medie con le stesse ponderazioni per ruolo già adottate nel foglio originale.</p>
+        <p>Ogni votante può valutare tutti tranne sé stesso sui sei attributi originari: VEL/TUF, TIR/PRE, PASS/RIN, DRI/RIF, DIF/REA e FIS/PIA. Per ogni giocatore vengono pubblicate soltanto le mediane aggregate.</p>
+        <p>L'Overall è calcolato sulle mediane con le stesse ponderazioni per ruolo già adottate nel foglio originale.</p>
         <div class="notice warn">I voti individuali non sono pubblici. Un giocatore può aggiornare i propri voti, ma esiste una sola valutazione valida per ogni coppia votante → giocatore.</div>
       </div>`;
   }
