@@ -75,7 +75,7 @@ function doPost(e) {
       requirePlayer_(body.voterId, body.pin);
       validateVote_(body);
       upsertVote_(body);
-      return json_({ok:true, ratings:getPeerRatingAverages_()});
+      return json_({ok:true, ratings:getPeerRatingMedians_()});
     }
 
     if (action === 'adminGetState') {
@@ -167,9 +167,28 @@ function resetPlayerPin(playerId) {
  * Azzera tutti i PIN senza cancellare giocatori, partite o voti.
  */
 function migrateToPlayerChosenPins() {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('FN_PLAYER_PIN_MIGRATED') === '1') {
+    return 'Migrazione già eseguita: nessun PIN è stato modificato.';
+  }
+
+  const ss = ss_();
+  const exportSheet = ss.getSheetByName(FN.PIN_EXPORT_SHEET);
+
+  // Il vecchio setup casuale creava FN_PIN_EXPORT.
+  // Se il foglio non esiste, evitiamo di azzerare PIN scelti dagli utenti.
+  if (!exportSheet) {
+    props.setProperty('FN_PLAYER_PIN_MIGRATED','1');
+    return 'FN_PIN_EXPORT non presente: nessun PIN è stato azzerato. Migrazione marcata come completata.';
+  }
+
   const sh = sheet_(FN.ACCESS_SHEET);
   const rows = sh.getDataRange().getValues();
-  if (rows.length < 2) return 'Nessun giocatore da migrare.';
+  if (rows.length < 2) {
+    props.setProperty('FN_PLAYER_PIN_MIGRATED','1');
+    return 'Nessun giocatore da migrare.';
+  }
+
   const idx = headerMap_(rows[0]);
 
   for (let i=1;i<rows.length;i++) {
@@ -179,18 +198,17 @@ function migrateToPlayerChosenPins() {
     CacheService.getScriptCache().remove('fn_fail_' + String(rows[i][idx.playerId]));
   }
 
-  const exportSheet = ss_().getSheetByName(FN.PIN_EXPORT_SHEET);
-  if (exportSheet) ss_().deleteSheet(exportSheet);
+  ss.deleteSheet(exportSheet);
+  props.setProperty('FN_PLAYER_PIN_MIGRATED','1');
 
-  return 'Migrazione completata: tutti i giocatori creeranno il proprio PIN al primo accesso.';
+  return 'Migrazione completata: i vecchi PIN casuali sono stati rimossi. Ogni giocatore creerà il proprio PIN al primo accesso.';
 }
-
 
 function publicState_() {
   return {
     ok:true,
     state:getState_(),
-    ratings:getPeerRatingAverages_()
+    ratings:getPeerRatingMedians_()
   };
 }
 
@@ -368,7 +386,7 @@ function upsertVote_(body) {
   }
 }
 
-function getPeerRatingAverages_() {
+function getPeerRatingMedians_() {
   const access = sheet_(FN.ACCESS_SHEET).getDataRange().getValues();
   const accessIdx = headerMap_(access[0]);
   const roles = new Map();
@@ -382,30 +400,67 @@ function getPeerRatingAverages_() {
     const idx = headerMap_(rows[0]);
     rows.slice(1).forEach(r => {
       const id = String(r[idx.targetId]);
-      if (!out.has(id)) out.set(id,{player_id:id,voters:0,vel_tuf:0,tir_pre:0,pass_rin:0,dri_rif:0,dif_rea:0,fis_pia:0});
+      if (!out.has(id)) {
+        out.set(id,{
+          player_id:id,
+          voters:0,
+          vel_tuf:[], tir_pre:[], pass_rin:[],
+          dri_rif:[], dif_rea:[], fis_pia:[]
+        });
+      }
       const a = out.get(id);
       a.voters++;
-      a.vel_tuf += Number(r[idx.velTuf])||0;
-      a.tir_pre += Number(r[idx.tirPre])||0;
-      a.pass_rin += Number(r[idx.passRin])||0;
-      a.dri_rif += Number(r[idx.driRif])||0;
-      a.dif_rea += Number(r[idx.difRea])||0;
-      a.fis_pia += Number(r[idx.fisPia])||0;
+      a.vel_tuf.push(Number(r[idx.velTuf]));
+      a.tir_pre.push(Number(r[idx.tirPre]));
+      a.pass_rin.push(Number(r[idx.passRin]));
+      a.dri_rif.push(Number(r[idx.driRif]));
+      a.dif_rea.push(Number(r[idx.difRea]));
+      a.fis_pia.push(Number(r[idx.fisPia]));
     });
   }
 
   const result = [];
   FN_PLAYERS.forEach(([id]) => {
-    const a = out.get(id) || {player_id:id,voters:0,vel_tuf:0,tir_pre:0,pass_rin:0,dri_rif:0,dif_rea:0,fis_pia:0};
-    if (a.voters) {
-      ['vel_tuf','tir_pre','pass_rin','dri_rif','dif_rea','fis_pia'].forEach(k => a[k] = round1_(a[k]/a.voters));
-      a.overall = round1_(overall_(roles.get(id),a));
+    const a = out.get(id);
+
+    if (a && a.voters) {
+      const rating = {
+        player_id:id,
+        voters:a.voters,
+        vel_tuf:median_(a.vel_tuf),
+        tir_pre:median_(a.tir_pre),
+        pass_rin:median_(a.pass_rin),
+        dri_rif:median_(a.dri_rif),
+        dif_rea:median_(a.dif_rea),
+        fis_pia:median_(a.fis_pia)
+      };
+      rating.overall = round1_(overall_(roles.get(id),rating));
+      result.push(rating);
     } else {
-      a.vel_tuf=a.tir_pre=a.pass_rin=a.dri_rif=a.dif_rea=a.fis_pia=a.overall=null;
+      result.push({
+        player_id:id, voters:0,
+        vel_tuf:null, tir_pre:null, pass_rin:null,
+        dri_rif:null, dif_rea:null, fis_pia:null,
+        overall:null
+      });
     }
-    result.push(a);
   });
+
   return result;
+}
+
+function median_(values) {
+  const nums = (values || [])
+    .map(Number)
+    .filter(Number.isFinite)
+    .sort((a,b) => a-b);
+
+  if (!nums.length) return null;
+
+  const middle = Math.floor(nums.length / 2);
+  if (nums.length % 2) return round1_(nums[middle]);
+
+  return round1_((nums[middle - 1] + nums[middle]) / 2);
 }
 
 function overall_(role,a) {
