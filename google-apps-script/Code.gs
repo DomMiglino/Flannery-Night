@@ -1,14 +1,10 @@
-const FN = {
-  SPREADSHEET_ID: '1HovZP5Owurvko_mnl2UeG08C38_HyytLKWSz8xx2BDw',
-  ACCESS_SHEET: 'FN_ACCESS',
-  VOTES_SHEET: 'FN_VOTES',
-  STATE_SHEET: 'FN_STATE',
-  PIN_EXPORT_SHEET: 'FN_PIN_EXPORT',
-  PIN_FAILURE_LIMIT: 5,
-  PIN_LOCK_SECONDS: 600
+var FN = {
+  SHEET_ID: '1HovZP5Owurvko_mnl2UeG08C38_HyytLKWSz8xx2BDw',
+  ACCESS: 'FN_ACCESS',
+  VOTES: 'FN_VOTES'
 };
 
-const FN_PLAYERS = [
+var PLAYERS = [
   ['salvio','Salvio','P'],['antonioportiere','AntonioPortiere','P'],['gabrieleportiere','GabrielePortiere','P'],
   ['guido','Guido','DC'],['kevin','Kevin','DC'],['fabio','Fabio','DL'],['vito','Vito','DL'],['mimmo','Mimmo','DL'],
   ['manuel','Manuel','DL'],['nicolas','Nicolas','DL'],['davide','Davide','DL'],['barzagli','Barzagli','DL'],['ivan','Ivan','DL'],
@@ -20,645 +16,331 @@ const FN_PLAYERS = [
 ];
 
 function doGet(e) {
-  try {
-    const params = (e && e.parameter) || {};
+  ensureStorage_();
+  var p = (e && e.parameter) ? e.parameter : {};
 
-    if (params.page === 'votes') {
-      return HtmlService
-        .createHtmlOutputFromFile('Votes')
-        .setTitle('Flannery Night · Votazioni')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
-
-    const action = params.action || 'health';
-
-    if (action === 'health') {
-      return json_({ok:true, service:'Flannery Night', version:3});
-    }
-
-    if (action === 'publicState') {
-      const payload = publicState_();
-      const prefix = String(params.prefix || '');
-
-      // JSONP is used only for public, non-sensitive aggregate data.
-      if (prefix && /^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(prefix)) {
-        return ContentService
-          .createTextOutput(prefix + '(' + JSON.stringify(payload) + ');')
-          .setMimeType(ContentService.MimeType.JAVASCRIPT);
-      }
-
-      return json_(payload);
-    }
-
-    return json_({ok:false,error:'Azione non valida'});
-  } catch (err) {
-    return json_({ok:false,error:safeError_(err)});
-  }
-}
-
-function doPost(e) {
-  try {
-    const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    const action = body.action || '';
-
-    if (action === 'publicState') return json_(publicState_());
-
-    if (action === 'playerPinStatus') {
-      return json_({ok:true, hasPin:playerHasPin_(body.playerId)});
-    }
-
-    if (action === 'registerPlayerPin') {
-      registerPlayerPin_(body.playerId, body.pin);
-      return json_({ok:true});
-    }
-
-    if (action === 'verifyPlayer') {
-      const ok = verifyPlayerPin_(body.playerId, body.pin);
-      return json_({ok});
-    }
-
-    if (action === 'myVotes') {
-      requirePlayer_(body.playerId, body.pin);
-      return json_({ok:true, votes:getMyVotes_(body.playerId)});
-    }
-
-    if (action === 'submitVote') {
-      requirePlayer_(body.voterId, body.pin);
-      validateVote_(body);
-      upsertVote_(body);
-      return json_({ok:true, ratings:getPeerRatingMedians_()});
-    }
-
-    if (action === 'adminGetState') {
-      requireAdmin_(body.adminSecret);
-      return json_({ok:true, state:getState_()});
-    }
-
-    if (action === 'adminSaveState') {
-      requireAdmin_(body.adminSecret);
-      if (!body.state || typeof body.state !== 'object') throw new Error('Stato non valido');
-      saveState_(body.state);
-      syncAccessNamesFromState_(body.state);
-      return json_({ok:true});
-    }
-
-    return json_({ok:false,error:'Azione non valida'});
-  } catch (err) {
-    return json_({ok:false,error:safeError_(err)});
-  }
-}
-
-
-/**
- * Functions exposed only to the Apps Script Votes.html page through google.script.run.
- * They avoid cross-origin fetch calls from GitHub Pages.
- */
-function ensureStorage_() {
-  const ss = ss_();
-
-  let access = ss.getSheetByName(FN.ACCESS_SHEET);
-  if (!access) {
-    access = ss.insertSheet(FN.ACCESS_SHEET);
-    access.getRange(1,1,1,8).setValues([['playerId','name','role','salt','pinHash','pinOrigin','active','updatedAt']]);
+  if (p.page === 'votes') {
+    return HtmlService.createHtmlOutputFromFile('Votes')
+      .setTitle('Flannery Night - Votazioni')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
-  if (access.getLastRow() <= 1) {
-    const rows = FN_PLAYERS.map(([id,name,role]) => [id,name,role,'','','',true,new Date()]);
-    if (rows.length) access.getRange(2,1,rows.length,rows[0].length).setValues(rows);
+  if ((p.action || 'health') === 'publicState') {
+    var payload = {ok:true, state:null, ratings:getMedians_()};
+    var cb = String(p.prefix || '');
+    if (cb && /^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(cb)) {
+      return ContentService.createTextOutput(cb + '(' + JSON.stringify(payload) + ');')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    return json_(payload);
   }
 
-  let votes = ss.getSheetByName(FN.VOTES_SHEET);
-  if (!votes) {
-    votes = ss.insertSheet(FN.VOTES_SHEET);
-    votes.getRange(1,1,1,9).setValues([['voterId','targetId','velTuf','tirPre','passRin','driRif','difRea','fisPia','updatedAt']]);
-  }
-
-  let state = ss.getSheetByName(FN.STATE_SHEET);
-  if (!state) {
-    state = ss.insertSheet(FN.STATE_SHEET);
-    state.getRange(1,1,1,3).setValues([['key','value','updatedAt']]);
-  }
-
-  try { access.hideSheet(); } catch (_) {}
-  try { votes.hideSheet(); } catch (_) {}
-  try { state.hideSheet(); } catch (_) {}
-
-  return true;
+  return json_({ok:true, service:'Flannery Night', version:4});
 }
 
 function uiBootstrap() {
   ensureStorage_();
-  return {
-    players: FN_PLAYERS.map(([id,name,role]) => ({id,name,role}))
-  };
+  return {players:playerObjects_()};
 }
 
 function uiPlayerPinStatus(playerId) {
   ensureStorage_();
-  return {hasPin: playerHasPin_(playerId)};
+  return {hasPin:hasUserPin_(playerId)};
 }
 
 function uiRegisterPlayerPin(playerId, pin) {
   ensureStorage_();
-  registerPlayerPin_(playerId, pin);
+  createPin_(playerId, pin);
   return {ok:true};
 }
 
 function uiLogin(playerId, pin) {
   ensureStorage_();
-  requirePlayer_(playerId, pin);
-  return {
-    ok:true,
-    votes:getMyVotes_(playerId),
-    players:FN_PLAYERS.map(([id,name,role]) => ({id,name,role}))
-  };
+  requirePin_(playerId, pin);
+  return {ok:true, players:playerObjects_(), votes:getMyVotes_(playerId)};
 }
 
-function uiSubmitVote(voterId, pin, targetId, values) {
+function uiSubmitVote(voterId, pin, targetId, v) {
   ensureStorage_();
-  requirePlayer_(voterId, pin);
+  requirePin_(voterId, pin);
 
-  const body = {
+  var vote = {
     voterId:voterId,
     targetId:targetId,
-    velTuf:Number(values && values.velTuf),
-    tirPre:Number(values && values.tirPre),
-    passRin:Number(values && values.passRin),
-    driRif:Number(values && values.driRif),
-    difRea:Number(values && values.difRea),
-    fisPia:Number(values && values.fisPia)
+    velTuf:Number(v.velTuf),
+    tirPre:Number(v.tirPre),
+    passRin:Number(v.passRin),
+    driRif:Number(v.driRif),
+    difRea:Number(v.difRea),
+    fisPia:Number(v.fisPia)
   };
 
-  validateVote_(body);
-  upsertVote_(body);
-
-  return {
-    ok:true,
-    ratings:getPeerRatingMedians_()
-  };
+  validateVote_(vote);
+  saveVote_(vote);
+  return {ok:true, ratings:getMedians_()};
 }
 
-/**
- * Run ONCE from the Apps Script editor.
- * Creates the database sheets and generates one PIN for every player.
- * PINs are written only to FN_PIN_EXPORT so you can distribute them.
- */
-function setupFlanneryNight() {
-  const ss = ss_();
+function ensureStorage_() {
+  var ss = SpreadsheetApp.openById(FN.SHEET_ID);
+  var access = ss.getSheetByName(FN.ACCESS);
 
-  const access = getOrCreateSheet_(FN.ACCESS_SHEET, ['playerId','name','role','salt','pinHash','pinOrigin','active','updatedAt']);
-  const votes = getOrCreateSheet_(FN.VOTES_SHEET, ['voterId','targetId','velTuf','tirPre','passRin','driRif','difRea','fisPia','updatedAt']);
-  const state = getOrCreateSheet_(FN.STATE_SHEET, ['key','value','updatedAt']);
-  if (access.getLastRow() > 1) {
-    throw new Error('FN_ACCESS contiene già dati. Setup interrotto per non sovrascrivere gli accessi esistenti.');
+  if (!access) {
+    access = ss.insertSheet(FN.ACCESS);
+    access.appendRow(['playerId','name','role','salt','pinHash','pinOrigin','active','updatedAt']);
   }
 
-  const rows = [];
-  FN_PLAYERS.forEach(([id,name,role]) => {
-    rows.push([id,name,role,'','','',true,new Date()]);
-  });
+  ensurePinOrigin_(access);
 
-  if (rows.length) access.getRange(2,1,rows.length,rows[0].length).setValues(rows);
-
-  access.hideSheet();
-  votes.hideSheet();
-  state.hideSheet();
-
-  return {
-    ok:true,
-    message:'Setup completato. Ogni giocatore creerà il proprio PIN di 6 cifre al primo accesso dalla webapp.'
-  };
-}
-
-/**
- * Run once from the editor to set the shared admin secret used by admin.html.
- * Example: setAdminSecret('una-frase-lunga-che-conosci-solo-tu')
- */
-function setAdminSecret(secret) {
-  if (!secret || String(secret).length < 12) throw new Error('Usa una password admin di almeno 12 caratteri.');
-  const props = PropertiesService.getScriptProperties();
-  const salt = Utilities.getUuid();
-  props.setProperties({
-    FN_ADMIN_SALT: salt,
-    FN_ADMIN_HASH: hash_(String(secret), salt)
-  });
-  return 'Admin secret impostato.';
-}
-
-/**
- * Optional. Reset one player's PIN from the Apps Script editor.
- * Returns the new plaintext PIN once.
- */
-function resetPlayerPin(playerId) {
-  const sh = sheet_(FN.ACCESS_SHEET);
-  const rows = sh.getDataRange().getValues();
-  const idx = headerMap_(rows[0]);
-  const rowIndex = rows.findIndex((r,i) => i>0 && String(r[idx.playerId]) === String(playerId));
-  if (rowIndex < 1) throw new Error('Giocatore non trovato.');
-
-  sh.getRange(rowIndex+1, idx.salt+1).clearContent();
-  sh.getRange(rowIndex+1, idx.pinHash+1).clearContent();
-  if (idx.pinOrigin !== undefined) sh.getRange(rowIndex+1, idx.pinOrigin+1).clearContent();
-  sh.getRange(rowIndex+1, idx.updatedAt+1).setValue(new Date());
-  CacheService.getScriptCache().remove('fn_fail_' + String(playerId));
-  return 'PIN azzerato. Il giocatore potrà crearne uno nuovo al prossimo accesso.';
-}
-
-/**
- * Esegui UNA SOLA VOLTA dopo il passaggio dal vecchio sistema con PIN casuali.
- * Azzera tutti i PIN senza cancellare giocatori, partite o voti.
- */
-function migrateToPlayerChosenPins() {
-  const props = PropertiesService.getScriptProperties();
-  if (props.getProperty('FN_PLAYER_PIN_MIGRATED') === '1') {
-    return 'Migrazione già eseguita: nessun PIN è stato modificato.';
-  }
-
-  const ss = ss_();
-  const exportSheet = ss.getSheetByName(FN.PIN_EXPORT_SHEET);
-
-  // Il vecchio setup casuale creava FN_PIN_EXPORT.
-  // Se il foglio non esiste, evitiamo di azzerare PIN scelti dagli utenti.
-  if (!exportSheet) {
-    props.setProperty('FN_PLAYER_PIN_MIGRATED','1');
-    return 'FN_PIN_EXPORT non presente: nessun PIN è stato azzerato. Migrazione marcata come completata.';
-  }
-
-  const sh = sheet_(FN.ACCESS_SHEET);
-  const rows = sh.getDataRange().getValues();
-  if (rows.length < 2) {
-    props.setProperty('FN_PLAYER_PIN_MIGRATED','1');
-    return 'Nessun giocatore da migrare.';
-  }
-
-  const idx = headerMap_(rows[0]);
-
-  for (let i=1;i<rows.length;i++) {
-    sh.getRange(i+1, idx.salt+1).clearContent();
-    sh.getRange(i+1, idx.pinHash+1).clearContent();
-    if (idx.pinOrigin !== undefined) sh.getRange(i+1, idx.pinOrigin+1).clearContent();
-    sh.getRange(i+1, idx.updatedAt+1).setValue(new Date());
-    CacheService.getScriptCache().remove('fn_fail_' + String(rows[i][idx.playerId]));
-  }
-
-  ss.deleteSheet(exportSheet);
-  props.setProperty('FN_PLAYER_PIN_MIGRATED','1');
-
-  return 'Migrazione completata: i vecchi PIN casuali sono stati rimossi. Ogni giocatore creerà il proprio PIN al primo accesso.';
-}
-
-function publicState_() {
-  ensureStorage_();
-  return {
-    ok:true,
-    state:getState_(),
-    ratings:getPeerRatingMedians_()
-  };
-}
-
-function getState_() {
-  const sh = getOrCreateSheet_(FN.STATE_SHEET, ['key','value','updatedAt']);
-  const rows = sh.getDataRange().getValues();
-  if (rows.length < 2) return null;
-  const idx = headerMap_(rows[0]);
-  const row = rows.find((r,i) => i>0 && String(r[idx.key]) === 'season_state');
-  if (!row || !row[idx.value]) return null;
-  try { return JSON.parse(String(row[idx.value])); }
-  catch (_) { return null; }
-}
-
-function saveState_(state) {
-  const sh = getOrCreateSheet_(FN.STATE_SHEET, ['key','value','updatedAt']);
-  const json = JSON.stringify(state);
-  const rows = sh.getDataRange().getValues();
-  const idx = headerMap_(rows[0]);
-  const rowIndex = rows.findIndex((r,i) => i>0 && String(r[idx.key]) === 'season_state');
-  if (rowIndex >= 1) {
-    sh.getRange(rowIndex+1, idx.value+1).setValue(json);
-    sh.getRange(rowIndex+1, idx.updatedAt+1).setValue(new Date());
-  } else {
-    sh.appendRow(['season_state',json,new Date()]);
-  }
-}
-
-function syncAccessNamesFromState_(state) {
-  if (!state || !Array.isArray(state.players)) return;
-  const sh = sheet_(FN.ACCESS_SHEET);
-  const rows = sh.getDataRange().getValues();
-  if (!rows.length) return;
-  const idx = headerMap_(rows[0]);
-  const byId = new Map(state.players.map(p => [String(p.id),p]));
-  for (let i=1;i<rows.length;i++) {
-    const p = byId.get(String(rows[i][idx.playerId]));
-    if (!p) continue;
-    sh.getRange(i+1, idx.name+1).setValue(p.name || rows[i][idx.name]);
-    sh.getRange(i+1, idx.role+1).setValue(p.role || rows[i][idx.role]);
-  }
-}
-
-function ensurePinOriginColumn_() {
-  const sh = sheet_(FN.ACCESS_SHEET);
-  const values = sh.getDataRange().getValues();
-  if (!values.length) throw new Error('FN_ACCESS è vuoto.');
-  const idx = headerMap_(values[0]);
-  if (idx.pinOrigin !== undefined) return;
-
-  const activeCol = idx.active !== undefined ? idx.active + 1 : sh.getLastColumn() + 1;
-  sh.insertColumnBefore(activeCol);
-  sh.getRange(1, activeCol).setValue('pinOrigin');
-}
-
-function playerHasPin_(playerId) {
-  ensureStorage_();
-  if (!playerId) return false;
-  ensurePinOriginColumn_();
-
-  const sh = sheet_(FN.ACCESS_SHEET);
-  const rows = sh.getDataRange().getValues();
-  const idx = headerMap_(rows[0]);
-  const row = rows.find((r,i) => i>0 &&
-    String(r[idx.playerId])===String(playerId) &&
-    String(r[idx.active]).toLowerCase()!=='false');
-
-  if (!row) return false;
-
-  // Only PINs explicitly created by the player in the webapp count as registered.
-  // Any old randomly generated salt/hash is treated as legacy and ignored.
-  return String(row[idx.pinOrigin]||'').trim().toLowerCase()==='user' &&
-    Boolean(String(row[idx.salt]||'').trim() && String(row[idx.pinHash]||'').trim());
-}
-
-function registerPlayerPin_(playerId,pin) {
-  if (!playerId) throw new Error('Seleziona un giocatore.');
-  if (!/^\d{6}$/.test(String(pin||''))) throw new Error('Il PIN deve contenere esattamente 6 cifre.');
-
-  ensurePinOriginColumn_();
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const sh = sheet_(FN.ACCESS_SHEET);
-    const rows = sh.getDataRange().getValues();
-    const idx = headerMap_(rows[0]);
-    const rowIndex = rows.findIndex((r,i) => i>0 &&
-      String(r[idx.playerId])===String(playerId) &&
-      String(r[idx.active]).toLowerCase()!=='false');
-
-    if (rowIndex < 1) throw new Error('Giocatore non valido.');
-
-    const row = rows[rowIndex];
-    if (String(row[idx.pinOrigin]||'').trim().toLowerCase()==='user') {
-      throw new Error('Questo giocatore ha già creato il proprio PIN.');
+  if (access.getLastRow() <= 1) {
+    var rows = [];
+    for (var i=0; i<PLAYERS.length; i++) {
+      rows.push([PLAYERS[i][0],PLAYERS[i][1],PLAYERS[i][2],'','','',true,new Date()]);
     }
+    access.getRange(2,1,rows.length,rows[0].length).setValues(rows);
+  }
 
-    // Overwrite any legacy random PIN left by the old setup.
-    const salt = Utilities.getUuid();
-    sh.getRange(rowIndex+1, idx.salt+1).setValue(salt);
-    sh.getRange(rowIndex+1, idx.pinHash+1).setValue(hash_(String(pin),salt));
-    sh.getRange(rowIndex+1, idx.pinOrigin+1).setValue('user');
-    sh.getRange(rowIndex+1, idx.updatedAt+1).setValue(new Date());
-    CacheService.getScriptCache().remove('fn_fail_' + String(playerId));
-  } finally {
-    lock.releaseLock();
+  var votes = ss.getSheetByName(FN.VOTES);
+  if (!votes) {
+    votes = ss.insertSheet(FN.VOTES);
+    votes.appendRow(['voterId','targetId','velTuf','tirPre','passRin','driRif','difRea','fisPia','updatedAt']);
   }
 }
 
-function verifyPlayerPin_(playerId,pin) {
-  if (!playerId || !/^\d{6}$/.test(String(pin||''))) return false;
+function ensurePinOrigin_(sheet) {
+  var headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf('pinOrigin') >= 0) return;
 
-  const cache = CacheService.getScriptCache();
-  const failKey = 'fn_fail_' + String(playerId);
-  const failures = Number(cache.get(failKey) || 0);
-  if (failures >= FN.PIN_FAILURE_LIMIT) return false;
+  var activeIndex = headers.indexOf('active');
+  var insertBefore = activeIndex >= 0 ? activeIndex + 1 : sheet.getLastColumn() + 1;
+  sheet.insertColumnBefore(insertBefore);
+  sheet.getRange(1,insertBefore).setValue('pinOrigin');
+}
 
-  ensurePinOriginColumn_();
-  const sh = sheet_(FN.ACCESS_SHEET);
-  const rows = sh.getDataRange().getValues();
-  const idx = headerMap_(rows[0]);
-  const row = rows.find((r,i) => i>0 && String(r[idx.playerId])===String(playerId) && String(r[idx.active]).toLowerCase()!=='false');
-  if (!row) return false;
-  if (String(row[idx.pinOrigin]||'').trim().toLowerCase()!=='user') return false;
-
-  const ok = timingSafeEqual_(String(row[idx.pinHash]), hash_(String(pin), String(row[idx.salt])));
-  if (ok) {
-    cache.remove(failKey);
-    return true;
+function playerObjects_() {
+  var out = [];
+  for (var i=0; i<PLAYERS.length; i++) {
+    out.push({id:PLAYERS[i][0], name:PLAYERS[i][1], role:PLAYERS[i][2]});
   }
-
-  cache.put(failKey, String(failures+1), FN.PIN_LOCK_SECONDS);
-  return false;
-}
-
-function requirePlayer_(playerId,pin) {
-  if (!verifyPlayerPin_(playerId,pin)) throw new Error('Giocatore o PIN non validi.');
-}
-
-function requireAdmin_(secret) {
-  const props = PropertiesService.getScriptProperties();
-  const salt = props.getProperty('FN_ADMIN_SALT');
-  const expected = props.getProperty('FN_ADMIN_HASH');
-  if (!salt || !expected) throw new Error('Password admin non configurata.');
-  if (!secret || !timingSafeEqual_(expected, hash_(String(secret),salt))) throw new Error('Password admin non valida.');
-}
-
-function getMyVotes_(voterId) {
-  const sh = sheet_(FN.VOTES_SHEET);
-  const rows = sh.getDataRange().getValues();
-  if (rows.length < 2) return [];
-  const idx = headerMap_(rows[0]);
-  return rows.slice(1)
-    .filter(r => String(r[idx.voterId]) === String(voterId))
-    .map(r => ({
-      target_id:String(r[idx.targetId]),
-      vel_tuf:Number(r[idx.velTuf]),
-      tir_pre:Number(r[idx.tirPre]),
-      pass_rin:Number(r[idx.passRin]),
-      dri_rif:Number(r[idx.driRif]),
-      dif_rea:Number(r[idx.difRea]),
-      fis_pia:Number(r[idx.fisPia]),
-      updated_at:r[idx.updatedAt] ? new Date(r[idx.updatedAt]).toISOString() : null
-    }));
-}
-
-function validateVote_(body) {
-  if (!body.voterId || !body.targetId) throw new Error('Giocatore non valido.');
-  if (String(body.voterId) === String(body.targetId)) throw new Error('Non puoi votare te stesso.');
-
-  const validIds = new Set(FN_PLAYERS.map(r => r[0]));
-  if (!validIds.has(String(body.targetId))) throw new Error('Giocatore votato non valido.');
-
-  ['velTuf','tirPre','passRin','driRif','difRea','fisPia'].forEach(k => {
-    const n = Number(body[k]);
-    if (!Number.isInteger(n) || n < 1 || n > 99) throw new Error('Tutti i voti devono essere interi da 1 a 99.');
-  });
-}
-
-function upsertVote_(body) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const sh = sheet_(FN.VOTES_SHEET);
-    const rows = sh.getDataRange().getValues();
-    const idx = headerMap_(rows[0]);
-    const rowIndex = rows.findIndex((r,i) => i>0 &&
-      String(r[idx.voterId])===String(body.voterId) &&
-      String(r[idx.targetId])===String(body.targetId));
-
-    const values = [
-      body.voterId,body.targetId,
-      Number(body.velTuf),Number(body.tirPre),Number(body.passRin),
-      Number(body.driRif),Number(body.difRea),Number(body.fisPia),new Date()
-    ];
-
-    if (rowIndex >= 1) sh.getRange(rowIndex+1,1,1,values.length).setValues([values]);
-    else sh.appendRow(values);
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function getPeerRatingMedians_() {
-  const access = sheet_(FN.ACCESS_SHEET).getDataRange().getValues();
-  const accessIdx = headerMap_(access[0]);
-  const roles = new Map();
-  access.slice(1).forEach(r => roles.set(String(r[accessIdx.playerId]), String(r[accessIdx.role])));
-
-  const sh = sheet_(FN.VOTES_SHEET);
-  const rows = sh.getDataRange().getValues();
-  const out = new Map();
-
-  if (rows.length > 1) {
-    const idx = headerMap_(rows[0]);
-    rows.slice(1).forEach(r => {
-      const id = String(r[idx.targetId]);
-      if (!out.has(id)) {
-        out.set(id,{
-          player_id:id,
-          voters:0,
-          vel_tuf:[], tir_pre:[], pass_rin:[],
-          dri_rif:[], dif_rea:[], fis_pia:[]
-        });
-      }
-      const a = out.get(id);
-      a.voters++;
-      a.vel_tuf.push(Number(r[idx.velTuf]));
-      a.tir_pre.push(Number(r[idx.tirPre]));
-      a.pass_rin.push(Number(r[idx.passRin]));
-      a.dri_rif.push(Number(r[idx.driRif]));
-      a.dif_rea.push(Number(r[idx.difRea]));
-      a.fis_pia.push(Number(r[idx.fisPia]));
-    });
-  }
-
-  const result = [];
-  FN_PLAYERS.forEach(([id]) => {
-    const a = out.get(id);
-
-    if (a && a.voters) {
-      const rating = {
-        player_id:id,
-        voters:a.voters,
-        vel_tuf:median_(a.vel_tuf),
-        tir_pre:median_(a.tir_pre),
-        pass_rin:median_(a.pass_rin),
-        dri_rif:median_(a.dri_rif),
-        dif_rea:median_(a.dif_rea),
-        fis_pia:median_(a.fis_pia)
-      };
-      rating.overall = round1_(overall_(roles.get(id),rating));
-      result.push(rating);
-    } else {
-      result.push({
-        player_id:id, voters:0,
-        vel_tuf:null, tir_pre:null, pass_rin:null,
-        dri_rif:null, dif_rea:null, fis_pia:null,
-        overall:null
-      });
-    }
-  });
-
-  return result;
-}
-
-function median_(values) {
-  const nums = (values || [])
-    .map(Number)
-    .filter(Number.isFinite)
-    .sort((a,b) => a-b);
-
-  if (!nums.length) return null;
-
-  const middle = Math.floor(nums.length / 2);
-  if (nums.length % 2) return round1_(nums[middle]);
-
-  return round1_((nums[middle - 1] + nums[middle]) / 2);
-}
-
-function overall_(role,a) {
-  const v=a.vel_tuf,t=a.tir_pre,p=a.pass_rin,d=a.dri_rif,df=a.dif_rea,f=a.fis_pia;
-  switch(role) {
-    case 'P': return .25*v+.15*t+.10*p+.25*d+.10*df+.15*f;
-    case 'DC': return .15*v+.10*p+.05*d+.40*df+.30*f;
-    case 'DL': return .20*v+.15*p+.05*d+.30*df+.30*f;
-    case 'CC': return .15*v+.15*t+.30*p+.15*d+.15*df+.10*f;
-    case 'CL': return .30*v+.10*t+.20*p+.25*d+.05*df+.10*f;
-    case 'PC': return .20*v+.40*t+.05*p+.15*d+.20*f;
-    default: return (v+t+p+d+df+f)/6;
-  }
-}
-
-function ss_() {
-  return SpreadsheetApp.openById(FN.SPREADSHEET_ID);
-}
-
-function sheet_(name) {
-  const sh = ss_().getSheetByName(name);
-  if (!sh) throw new Error('Foglio mancante: '+name+'. Esegui setupFlanneryNight().');
-  return sh;
-}
-
-function getOrCreateSheet_(name,headers) {
-  const ss=ss_();
-  let sh=ss.getSheetByName(name);
-  if(!sh) sh=ss.insertSheet(name);
-  if(sh.getLastRow()===0) sh.getRange(1,1,1,headers.length).setValues([headers]);
-  return sh;
-}
-
-function headerMap_(header) {
-  const out={};
-  header.forEach((h,i)=>out[String(h)]=i);
   return out;
 }
 
-function hash_(value,salt) {
-  const bytes = Utilities.computeDigest(
-    Utilities.DigestAlgorithm.SHA_256,
-    String(salt)+'|'+String(value),
-    Utilities.Charset.UTF_8
-  );
-  return bytes.map(b => ('0'+((b<0?b+256:b).toString(16))).slice(-2)).join('');
+function hasUserPin_(playerId) {
+  var row = accessRow_(playerId);
+  if (!row) return false;
+  return String(row.pinOrigin || '') === 'user' && !!row.salt && !!row.pinHash;
 }
 
-function timingSafeEqual_(a,b) {
-  a=String(a||''); b=String(b||'');
-  if(a.length!==b.length) return false;
-  let diff=0;
-  for(let i=0;i<a.length;i++) diff |= a.charCodeAt(i)^b.charCodeAt(i);
-  return diff===0;
+function createPin_(playerId, pin) {
+  pin = String(pin || '');
+  if (!/^\d{6}$/.test(pin)) throw new Error('Il PIN deve avere esattamente 6 cifre.');
+
+  var sh = SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.ACCESS);
+  var data = sh.getDataRange().getValues();
+  var h = headerMap_(data[0]);
+  var r = findPlayerRowIndex_(data, h, playerId);
+  if (r < 1) throw new Error('Giocatore non trovato.');
+  if (String(data[r][h.pinOrigin] || '') === 'user') throw new Error('Questo giocatore ha gia creato il PIN.');
+
+  var salt = Utilities.getUuid();
+  sh.getRange(r+1,h.salt+1).setValue(salt);
+  sh.getRange(r+1,h.pinHash+1).setValue(hash_(pin,salt));
+  sh.getRange(r+1,h.pinOrigin+1).setValue('user');
+  sh.getRange(r+1,h.updatedAt+1).setValue(new Date());
+}
+
+function requirePin_(playerId, pin) {
+  if (!verifyPin_(playerId, pin)) throw new Error('Giocatore o PIN non validi.');
+}
+
+function verifyPin_(playerId, pin) {
+  pin = String(pin || '');
+  if (!/^\d{6}$/.test(pin)) return false;
+
+  var row = accessRow_(playerId);
+  if (!row || String(row.pinOrigin || '') !== 'user') return false;
+  return safeEqual_(String(row.pinHash), hash_(pin,String(row.salt)));
+}
+
+function accessRow_(playerId) {
+  var sh = SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.ACCESS);
+  var data = sh.getDataRange().getValues();
+  var h = headerMap_(data[0]);
+  var r = findPlayerRowIndex_(data, h, playerId);
+  if (r < 1) return null;
+
+  return {
+    playerId:data[r][h.playerId],
+    salt:data[r][h.salt],
+    pinHash:data[r][h.pinHash],
+    pinOrigin:data[r][h.pinOrigin],
+    active:data[r][h.active]
+  };
+}
+
+function findPlayerRowIndex_(data, h, playerId) {
+  for (var i=1; i<data.length; i++) {
+    if (String(data[i][h.playerId]) === String(playerId) && String(data[i][h.active]).toLowerCase() !== 'false') return i;
+  }
+  return -1;
+}
+
+function getMyVotes_(voterId) {
+  var sh = SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.VOTES);
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return [];
+
+  var h = headerMap_(data[0]);
+  var out = [];
+  for (var i=1; i<data.length; i++) {
+    if (String(data[i][h.voterId]) !== String(voterId)) continue;
+    out.push({
+      target_id:String(data[i][h.targetId]),
+      vel_tuf:Number(data[i][h.velTuf]),
+      tir_pre:Number(data[i][h.tirPre]),
+      pass_rin:Number(data[i][h.passRin]),
+      dri_rif:Number(data[i][h.driRif]),
+      dif_rea:Number(data[i][h.difRea]),
+      fis_pia:Number(data[i][h.fisPia])
+    });
+  }
+  return out;
+}
+
+function validateVote_(v) {
+  if (!v.voterId || !v.targetId) throw new Error('Giocatore non valido.');
+  if (String(v.voterId) === String(v.targetId)) throw new Error('Non puoi votare te stesso.');
+
+  var keys = ['velTuf','tirPre','passRin','driRif','difRea','fisPia'];
+  for (var i=0; i<keys.length; i++) {
+    var n = Number(v[keys[i]]);
+    if (Math.floor(n) !== n || n < 1 || n > 99) throw new Error('Tutti i voti devono essere interi da 1 a 99.');
+  }
+}
+
+function saveVote_(v) {
+  var sh = SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.VOTES);
+  var data = sh.getDataRange().getValues();
+  var h = headerMap_(data[0]);
+  var row = -1;
+
+  for (var i=1; i<data.length; i++) {
+    if (String(data[i][h.voterId]) === String(v.voterId) && String(data[i][h.targetId]) === String(v.targetId)) {
+      row = i + 1;
+      break;
+    }
+  }
+
+  var values = [[v.voterId,v.targetId,v.velTuf,v.tirPre,v.passRin,v.driRif,v.difRea,v.fisPia,new Date()]];
+  if (row > 0) sh.getRange(row,1,1,9).setValues(values);
+  else sh.appendRow(values[0]);
+}
+
+function getMedians_() {
+  var ss = SpreadsheetApp.openById(FN.SHEET_ID);
+  var access = ss.getSheetByName(FN.ACCESS).getDataRange().getValues();
+  var ah = headerMap_(access[0]);
+  var roles = {};
+  var i;
+  for (i=1; i<access.length; i++) roles[String(access[i][ah.playerId])] = String(access[i][ah.role]);
+
+  var votes = ss.getSheetByName(FN.VOTES).getDataRange().getValues();
+  var out = {};
+
+  if (votes.length > 1) {
+    var vh = headerMap_(votes[0]);
+    for (i=1; i<votes.length; i++) {
+      var id = String(votes[i][vh.targetId]);
+      if (!out[id]) out[id] = {voters:0,vel_tuf:[],tir_pre:[],pass_rin:[],dri_rif:[],dif_rea:[],fis_pia:[]};
+      out[id].voters++;
+      out[id].vel_tuf.push(Number(votes[i][vh.velTuf]));
+      out[id].tir_pre.push(Number(votes[i][vh.tirPre]));
+      out[id].pass_rin.push(Number(votes[i][vh.passRin]));
+      out[id].dri_rif.push(Number(votes[i][vh.driRif]));
+      out[id].dif_rea.push(Number(votes[i][vh.difRea]));
+      out[id].fis_pia.push(Number(votes[i][vh.fisPia]));
+    }
+  }
+
+  var result = [];
+  for (i=0; i<PLAYERS.length; i++) {
+    var pid = PLAYERS[i][0];
+    var a = out[pid];
+    if (!a) {
+      result.push({player_id:pid,voters:0,vel_tuf:null,tir_pre:null,pass_rin:null,dri_rif:null,dif_rea:null,fis_pia:null,overall:null});
+      continue;
+    }
+
+    var r = {
+      player_id:pid,
+      voters:a.voters,
+      vel_tuf:median_(a.vel_tuf),
+      tir_pre:median_(a.tir_pre),
+      pass_rin:median_(a.pass_rin),
+      dri_rif:median_(a.dri_rif),
+      dif_rea:median_(a.dif_rea),
+      fis_pia:median_(a.fis_pia)
+    };
+    r.overall = round1_(overall_(roles[pid],r));
+    result.push(r);
+  }
+  return result;
+}
+
+function median_(a) {
+  var b = a.slice().sort(function(x,y){return x-y;});
+  var m = Math.floor(b.length/2);
+  return b.length % 2 ? b[m] : round1_((b[m-1]+b[m])/2);
+}
+
+function overall_(role,a) {
+  var v=a.vel_tuf,t=a.tir_pre,p=a.pass_rin,d=a.dri_rif,df=a.dif_rea,f=a.fis_pia;
+  if (role==='P')  return .25*v+.15*t+.10*p+.25*d+.10*df+.15*f;
+  if (role==='DC') return .15*v+.10*p+.05*d+.40*df+.30*f;
+  if (role==='DL') return .20*v+.15*p+.05*d+.30*df+.30*f;
+  if (role==='CC') return .15*v+.15*t+.30*p+.15*d+.15*df+.10*f;
+  if (role==='CL') return .30*v+.10*t+.20*p+.25*d+.05*df+.10*f;
+  if (role==='PC') return .20*v+.40*t+.05*p+.15*d+.20*f;
+  return (v+t+p+d+df+f)/6;
+}
+
+function headerMap_(row) {
+  var h = {};
+  for (var i=0; i<row.length; i++) h[String(row[i])] = i;
+  return h;
+}
+
+function hash_(value,salt) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(salt)+'|'+String(value), Utilities.Charset.UTF_8);
+  var out = '';
+  for (var i=0; i<bytes.length; i++) {
+    var n = bytes[i] < 0 ? bytes[i] + 256 : bytes[i];
+    out += ('0' + n.toString(16)).slice(-2);
+  }
+  return out;
+}
+
+function safeEqual_(a,b) {
+  if (a.length !== b.length) return false;
+  var d = 0;
+  for (var i=0; i<a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
 }
 
 function round1_(n) {
-  return Math.round((Number(n)+Number.EPSILON)*10)/10;
-}
-
-function safeError_(err) {
-  const msg = err && err.message ? String(err.message) : 'Errore';
-  return msg.replace(/Exception:\s*/i,'').slice(0,300);
+  return Math.round(Number(n)*10)/10;
 }
 
 function json_(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function diagnoseFlannery() {
+  ensureStorage_();
+  return {
+    ok:true,
+    spreadsheetId:FN.SHEET_ID,
+    accessRows:SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.ACCESS).getLastRow(),
+    votesRows:SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.VOTES).getLastRow(),
+    mimmoHasPin:hasUserPin_('mimmo')
+  };
 }
