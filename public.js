@@ -105,43 +105,36 @@
     return out;
   }
 
-  async function initBackend(){
-    const cfg=window.FLANNERY_SUPABASE||{};
-    if(cfg.url && cfg.anonKey && window.supabase){
-      db=window.supabase.createClient(cfg.url,cfg.anonKey);
-      await Promise.allSettled([loadSharedSeason(),loadPeerRatings()]);
-    }
+  async function apiPost(payload){
+    const url=window.FLANNERY_API_URL||'';
+    if(!url) throw new Error('API non configurata');
+    const r=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload)
+    });
+    const out=await r.json();
+    if(!out.ok) throw new Error(out.error||'Errore API');
+    return out;
   }
 
-  async function loadSharedSeason(){
-    if(!db)return;
-    const [{data:players,error:pe},{data:matches,error:me},{data:mp,error:mpe}] = await Promise.all([
-      db.from('players').select('*').eq('active',true).order('name'),
-      db.from('matches').select('*').order('match_date'),
-      db.from('match_players').select('*')
-    ]);
-    if(pe||me||mpe||!players?.length||!matches?.length)return;
-    const byMatch=new Map(matches.map(m=>[m.id,{
-      id:m.id,date:m.match_date,teamA:[],teamB:[],
-      mvpA:m.mvp_a||'',mvpB:m.mvp_b||'',critica:m.critica||'',notes:m.notes||'',advancedTracked:m.advanced_tracked||false
-    }]));
-    (mp||[]).forEach(e=>{
-      const m=byMatch.get(e.match_id); if(!m)return;
-      const row={playerId:e.player_id,goals:e.goals||0,ownGoals:e.own_goals||0,assists:e.assists||0,shotsOnTarget:e.shots_on_target||0,keyPasses:e.key_passes||0,dribbles:e.dribbles||0,recoveries:e.recoveries||0,duelsWon:e.duels_won||0,saves:e.saves||0};
-      (e.team==='A'?m.teamA:m.teamB).push(row);
-    });
-    data={
-      version:2,season:'2026/27',
-      players:players.map(p=>({id:p.id,name:p.name,role:p.role,nationUrl:p.nation_url||'',active:p.active})),
-      matches:[...byMatch.values()]
-    };
+  async function initBackend(){
+    const url=window.FLANNERY_API_URL||'';
+    if(!url) return;
+    db=true;
+    try{
+      const r=await apiPost({action:'publicState'});
+      if(r.state && r.state.players && r.state.matches) data=r.state;
+      peerRatings=new Map((r.ratings||[]).map(x=>[x.player_id,x]));
+    }catch(e){
+      console.warn('Backend Google non disponibile',e);
+    }
   }
 
   async function loadPeerRatings(){
     if(!db)return;
-    const {data:r,error}=await db.rpc('get_peer_rating_averages');
-    if(error)return;
-    peerRatings=new Map((r||[]).map(x=>[x.player_id,x]));
+    const r=await apiPost({action:'publicState'});
+    peerRatings=new Map((r.ratings||[]).map(x=>[x.player_id,x]));
   }
 
   function setView(v){
@@ -309,12 +302,16 @@
     const pin=document.getElementById('voterPin').value.trim();
     if(!id||!pin){toast('Seleziona il giocatore e inserisci il PIN');return;}
     const btn=document.getElementById('loginVote');btn.disabled=true;btn.textContent='Verifica...';
-    const {data:ok,error}=await db.rpc('verify_player_pin',{p_player_id:id,p_pin:pin});
-    if(error||!ok){btn.disabled=false;btn.textContent='Accedi alle votazioni';toast('Giocatore o PIN non validi');return;}
-    voterSession={id,pin};
-    const {data:rows,error:ve}=await db.rpc('get_my_peer_votes',{p_voter_id:id,p_pin:pin});
-    myVotes=new Map((!ve&&rows?rows:[]).map(x=>[x.target_id,x]));
-    renderVotes();
+    try{
+      const vr=await apiPost({action:'verifyPlayer',playerId:id,pin});
+      if(!vr.ok){throw new Error('Identificazione non valida');}
+      voterSession={id,pin};
+      const mv=await apiPost({action:'myVotes',playerId:id,pin});
+      myVotes=new Map((mv.votes||[]).map(x=>[x.target_id,x]));
+      renderVotes();
+    }catch(e){
+      btn.disabled=false;btn.textContent='Accedi alle votazioni';toast('Giocatore o PIN non validi');
+    }
   }
 
   async function saveVote(card){
@@ -328,17 +325,21 @@
     });
     if(!valid){toast('Inserisci tutti i voti con valori interi da 1 a 99');return;}
     const btn=card.querySelector('.save-vote');btn.disabled=true;btn.textContent='Salvataggio...';
-    const {error}=await db.rpc('submit_peer_vote',{
-      p_voter_id:voterSession.id,p_pin:voterSession.pin,p_target_id:target,
-      p_vel_tuf:vals.vel_tuf,p_tir_pre:vals.tir_pre,p_pass_rin:vals.pass_rin,
-      p_dri_rif:vals.dri_rif,p_dif_rea:vals.dif_rea,p_fis_pia:vals.fis_pia
-    });
-    btn.disabled=false;btn.textContent='Salva voto';
-    if(error){toast('Salvataggio non riuscito');return;}
-    myVotes.set(target,{target_id:target,...vals});
-    await loadPeerRatings();
-    toast('Voto salvato');
-    renderVotes();
+    try{
+      const out=await apiPost({
+        action:'submitVote',
+        voterId:voterSession.id,pin:voterSession.pin,targetId:target,
+        velTuf:vals.vel_tuf,tirPre:vals.tir_pre,passRin:vals.pass_rin,
+        driRif:vals.dri_rif,difRea:vals.dif_rea,fisPia:vals.fis_pia
+      });
+      btn.disabled=false;btn.textContent='Salva voto';
+      myVotes.set(target,{target_id:target,...vals});
+      peerRatings=new Map((out.ratings||[]).map(x=>[x.player_id,x]));
+      toast('Voto salvato');
+      renderVotes();
+    }catch(e){
+      btn.disabled=false;btn.textContent='Salva voto';toast(e.message||'Salvataggio non riuscito');
+    }
   }
 
   document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
