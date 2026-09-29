@@ -4,16 +4,17 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#173d2b" />
-  <title>Flannery Night</title>
+  <title>Flannery Night Admin</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="app-header">
     <div>
-      <div class="eyebrow">Season 2026/27</div>
+      <div class="eyebrow">Season 2026/27 · Admin</div>
       <h1>Flannery Night</h1>
-      <p>Classifica, partite e rating della community</p>
+      <p>Gestione classifica, partite e giocatori</p>
     </div>
+    <button id="newMatchTop" class="primary">+ Nuova partita</button>
   </header>
 
   <nav class="tabs" aria-label="Navigazione principale">
@@ -22,14 +23,13 @@
     <button data-view="details">Dettagli</button>
     <button data-view="players">Giocatori</button>
     <button data-view="method">Rating</button>
-    <button data-view="votes">Votazioni</button>
+    <button data-view="backup">Backup</button>
   </nav>
 
   <main id="app" class="app-shell"></main>
   <div id="toast" class="toast" aria-live="polite"></div>
 
   <script src="data.js"></script>
-  <script src="config.js"></script>
-  <script src="public.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
