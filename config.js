@@ -1,6 +1,3 @@
-// Configurazione Supabase della versione pubblica.
-// Verrà compilata quando il progetto condiviso sarà collegato.
-window.FLANNERY_SUPABASE = {
-  url: "",
-  anonKey: ""
-};
+// Endpoint del Web App Google Apps Script.
+// Dopo il deploy di Code.gs incolla qui l'URL che termina in /exec.
+window.FLANNERY_API_URL = "";
