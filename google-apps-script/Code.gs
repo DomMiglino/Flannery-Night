@@ -52,6 +52,15 @@ function doPost(e) {
 
     if (action === 'publicState') return json_(publicState_());
 
+    if (action === 'playerPinStatus') {
+      return json_({ok:true, hasPin:playerHasPin_(body.playerId)});
+    }
+
+    if (action === 'registerPlayerPin') {
+      registerPlayerPin_(body.playerId, body.pin);
+      return json_({ok:true});
+    }
+
     if (action === 'verifyPlayer') {
       const ok = verifyPlayerPin_(body.playerId, body.pin);
       return json_({ok});
@@ -99,23 +108,16 @@ function setupFlanneryNight() {
   const access = getOrCreateSheet_(FN.ACCESS_SHEET, ['playerId','name','role','salt','pinHash','active','updatedAt']);
   const votes = getOrCreateSheet_(FN.VOTES_SHEET, ['voterId','targetId','velTuf','tirPre','passRin','driRif','difRea','fisPia','updatedAt']);
   const state = getOrCreateSheet_(FN.STATE_SHEET, ['key','value','updatedAt']);
-  const exportSheet = getOrCreateSheet_(FN.PIN_EXPORT_SHEET, ['playerId','name','PIN']);
-
   if (access.getLastRow() > 1) {
-    throw new Error('FN_ACCESS contiene già dati. Setup interrotto per non sovrascrivere i PIN esistenti.');
+    throw new Error('FN_ACCESS contiene già dati. Setup interrotto per non sovrascrivere gli accessi esistenti.');
   }
 
   const rows = [];
-  const exportRows = [];
   FN_PLAYERS.forEach(([id,name,role]) => {
-    const pin = String(Math.floor(100000 + Math.random()*900000));
-    const salt = Utilities.getUuid();
-    rows.push([id,name,role,salt,hash_(pin,salt),true,new Date()]);
-    exportRows.push([id,name,pin]);
+    rows.push([id,name,role,'','',true,new Date()]);
   });
 
   if (rows.length) access.getRange(2,1,rows.length,rows[0].length).setValues(rows);
-  if (exportRows.length) exportSheet.getRange(2,1,exportRows.length,exportRows[0].length).setValues(exportRows);
 
   access.hideSheet();
   votes.hideSheet();
@@ -123,7 +125,7 @@ function setupFlanneryNight() {
 
   return {
     ok:true,
-    message:'Setup completato. Copia i PIN da FN_PIN_EXPORT e poi elimina/nascondi quel foglio.'
+    message:'Setup completato. Ogni giocatore creerà il proprio PIN di 6 cifre al primo accesso dalla webapp.'
   };
 }
 
@@ -153,13 +155,36 @@ function resetPlayerPin(playerId) {
   const rowIndex = rows.findIndex((r,i) => i>0 && String(r[idx.playerId]) === String(playerId));
   if (rowIndex < 1) throw new Error('Giocatore non trovato.');
 
-  const pin = String(Math.floor(100000 + Math.random()*900000));
-  const salt = Utilities.getUuid();
-  sh.getRange(rowIndex+1, idx.salt+1).setValue(salt);
-  sh.getRange(rowIndex+1, idx.pinHash+1).setValue(hash_(pin,salt));
+  sh.getRange(rowIndex+1, idx.salt+1).clearContent();
+  sh.getRange(rowIndex+1, idx.pinHash+1).clearContent();
   sh.getRange(rowIndex+1, idx.updatedAt+1).setValue(new Date());
-  return pin;
+  CacheService.getScriptCache().remove('fn_fail_' + String(playerId));
+  return 'PIN azzerato. Il giocatore potrà crearne uno nuovo al prossimo accesso.';
 }
+
+/**
+ * Esegui UNA SOLA VOLTA dopo il passaggio dal vecchio sistema con PIN casuali.
+ * Azzera tutti i PIN senza cancellare giocatori, partite o voti.
+ */
+function migrateToPlayerChosenPins() {
+  const sh = sheet_(FN.ACCESS_SHEET);
+  const rows = sh.getDataRange().getValues();
+  if (rows.length < 2) return 'Nessun giocatore da migrare.';
+  const idx = headerMap_(rows[0]);
+
+  for (let i=1;i<rows.length;i++) {
+    sh.getRange(i+1, idx.salt+1).clearContent();
+    sh.getRange(i+1, idx.pinHash+1).clearContent();
+    sh.getRange(i+1, idx.updatedAt+1).setValue(new Date());
+    CacheService.getScriptCache().remove('fn_fail_' + String(rows[i][idx.playerId]));
+  }
+
+  const exportSheet = ss_().getSheetByName(FN.PIN_EXPORT_SHEET);
+  if (exportSheet) ss_().deleteSheet(exportSheet);
+
+  return 'Migrazione completata: tutti i giocatori creeranno il proprio PIN al primo accesso.';
+}
+
 
 function publicState_() {
   return {
@@ -209,8 +234,50 @@ function syncAccessNamesFromState_(state) {
   }
 }
 
+function playerHasPin_(playerId) {
+  if (!playerId) return false;
+  const sh = sheet_(FN.ACCESS_SHEET);
+  const rows = sh.getDataRange().getValues();
+  const idx = headerMap_(rows[0]);
+  const row = rows.find((r,i) => i>0 &&
+    String(r[idx.playerId])===String(playerId) &&
+    String(r[idx.active]).toLowerCase()!=='false');
+  if (!row) return false;
+  return Boolean(String(row[idx.salt]||'').trim() && String(row[idx.pinHash]||'').trim());
+}
+
+function registerPlayerPin_(playerId,pin) {
+  if (!playerId) throw new Error('Seleziona un giocatore.');
+  if (!/^\d{6}$/.test(String(pin||''))) throw new Error('Il PIN deve contenere esattamente 6 cifre.');
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sh = sheet_(FN.ACCESS_SHEET);
+    const rows = sh.getDataRange().getValues();
+    const idx = headerMap_(rows[0]);
+    const rowIndex = rows.findIndex((r,i) => i>0 &&
+      String(r[idx.playerId])===String(playerId) &&
+      String(r[idx.active]).toLowerCase()!=='false');
+
+    if (rowIndex < 1) throw new Error('Giocatore non valido.');
+
+    const row = rows[rowIndex];
+    if (String(row[idx.salt]||'').trim() || String(row[idx.pinHash]||'').trim()) {
+      throw new Error('Questo giocatore ha già creato il proprio PIN.');
+    }
+
+    const salt = Utilities.getUuid();
+    sh.getRange(rowIndex+1, idx.salt+1).setValue(salt);
+    sh.getRange(rowIndex+1, idx.pinHash+1).setValue(hash_(String(pin),salt));
+    sh.getRange(rowIndex+1, idx.updatedAt+1).setValue(new Date());
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function verifyPlayerPin_(playerId,pin) {
-  if (!playerId || !pin) return false;
+  if (!playerId || !/^\d{6}$/.test(String(pin||''))) return false;
 
   const cache = CacheService.getScriptCache();
   const failKey = 'fn_fail_' + String(playerId);
