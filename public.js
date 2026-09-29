@@ -77,7 +77,7 @@
       x.power=round1(x.points+x.mvp*Math.max(x.avgPoints,1));
       const recent=x.results.slice(-5);
       let n=0,d=0;
-      recent.forEach((r,i)=>{const w=i+1;base=r[0]==='V'?3:r[0]==='P'?1:0;n+=w*(base+(r.includes('*')?.35:0));d+=w*3.35;});
+      recent.forEach((r,i)=>{const w=i+1, base=r[0]==='V'?3:r[0]==='P'?1:0;n+=w*(base+(r.includes('*')?.35:0));d+=w*3.35;});
       x.formIndex=d?Math.round(100*n/d):0;
       x.formText=x.results.join(' ');
     }
