@@ -81,6 +81,30 @@ function resetBackendLink() {
   return 'Collegamento backend azzerato. Esegui di nuovo setupBackend().';
 }
 
+function doPost(e) {
+  ensureStorage_();
+
+  try {
+    var body = {};
+    if (e && e.postData && e.postData.contents) {
+      body = JSON.parse(e.postData.contents);
+    }
+
+    if (body.action === 'adminSaveState') {
+      var state = body.state;
+      if (!state || !Array.isArray(state.players) || !Array.isArray(state.matches)) {
+        throw new Error('Stato stagione non valido.');
+      }
+      saveSeasonState_(state);
+      return json_({ok:true, syncId:state._syncId || null});
+    }
+
+    return json_({ok:false, error:'Azione non valida'});
+  } catch (err) {
+    return json_({ok:false, error:(err && err.message) ? err.message : String(err)});
+  }
+}
+
 function doGet(e) {
   ensureStorage_();
   var p = (e && e.parameter) ? e.parameter : {};
