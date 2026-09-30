@@ -27,6 +27,10 @@
   let currentView = 'dashboard';
   let editingMatchId = null;
   let editingPlayerId = null;
+  let backendReady = false;
+  let backendFrame = null;
+  let backendSeq = 0;
+  const backendPending = new Map();
 
   const app = document.getElementById('app');
   const toastEl = document.getElementById('toast');
@@ -39,11 +43,80 @@
     } catch(e) { console.warn('LocalStorage non disponibile', e); }
     return clone(window.FLANNERY_INITIAL_DATA);
   }
-  function saveData(message){
+
+  function saveLocal(){
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
     catch(e){ console.warn('Salvataggio locale non riuscito', e); }
-    if(message) toast(message);
   }
+
+  async function saveData(message){
+    saveLocal();
+    if(message) toast(message + ' · sincronizzazione...');
+    try{
+      await backendCall('saveState',{state:data});
+      if(message) toast(message + ' · sincronizzato');
+    }catch(e){
+      console.warn('Sincronizzazione backend non riuscita',e);
+      if(message) toast(message + ' · solo locale');
+    }
+  }
+
+  function backendCall(action,payload={}){
+    return new Promise((resolve,reject)=>{
+      if(!backendFrame || !backendReady){reject(new Error('Backend non pronto'));return;}
+      const id='fn-'+(++backendSeq)+'-'+Date.now();
+      const timer=setTimeout(()=>{
+        backendPending.delete(id);
+        reject(new Error('Timeout backend'));
+      },12000);
+      backendPending.set(id,{resolve,reject,timer});
+      backendFrame.contentWindow.postMessage({type:'flannery-admin',id,action,...payload},'*');
+    });
+  }
+
+  async function initBackendSync(){
+    const base=window.FLANNERY_API_URL||'';
+    if(!base) return;
+    backendFrame=document.getElementById('backendBridge');
+    if(!backendFrame) return;
+
+    try{
+      await new Promise((resolve,reject)=>{
+        const t=setTimeout(()=>reject(new Error('Bridge non disponibile')),12000);
+        function ready(ev){
+          if(ev.data && ev.data.type==='flannery-admin-ready'){
+            clearTimeout(t);
+            window.removeEventListener('message',ready);
+            backendReady=true;
+            resolve();
+          }
+        }
+        window.addEventListener('message',ready);
+      });
+
+      const remote=await backendCall('getState');
+      if(remote && remote.state && Array.isArray(remote.state.players) && Array.isArray(remote.state.matches)){
+        data=remote.state;
+        saveLocal();
+      }else{
+        await backendCall('saveState',{state:data});
+      }
+      render();
+    }catch(e){
+      console.warn('Backend condiviso non disponibile',e);
+    }
+  }
+
+  window.addEventListener('message',ev=>{
+    const m=ev.data||{};
+    if(m.type!=='flannery-admin-result' || !m.id) return;
+    const p=backendPending.get(m.id);
+    if(!p) return;
+    clearTimeout(p.timer);
+    backendPending.delete(m.id);
+    if(m.ok) p.resolve(m.result);
+    else p.reject(new Error(m.error||'Errore backend'));
+  });
   function toast(msg){
     toastEl.textContent = msg;
     toastEl.classList.add('show');
@@ -515,4 +588,5 @@
   document.head.appendChild(flagStyle);
 
   render();
+  initBackendSync();
 })();
