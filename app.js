@@ -304,10 +304,10 @@
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>#</th><th class="name">Giocatore</th><th>G</th><th>V</th><th>P</th><th>S</th><th>GF</th><th>AG</th><th>Media gol</th><th>Pt</th><th>Media pt</th><th>Rendimento</th><th>Forma</th><th>MVP</th><th>Critica</th><th>Power</th><th>Obj.</th><th>Conf.</th>
+            <th>#</th><th class="name">Giocatore</th><th>G</th><th>V</th><th>P</th><th>S</th><th>GF</th><th>AG</th><th>Media gol</th><th>Pt</th><th>Media pt</th><th>Rendimento</th><th>Forma</th><th>MVP</th><th>Critica</th><th>Power</th>
           </tr></thead>
           <tbody>${rows.map((x,i)=>{
-            const p=playerById(x.playerId), o=obj.get(x.playerId);
+            const p=playerById(x.playerId);
             return `<tr>
               <td class="rank">${i+1}</td>
               <td class="name">${nationImg(p)} <strong>${esc(p.name)}</strong> <span class="muted">${esc(p.role||'')}</span></td>
@@ -452,7 +452,7 @@
     document.getElementById('cancelMatch').onclick=cancel; document.getElementById('cancelMatch2').onclick=cancel;
     document.getElementById('saveMatch').onclick=saveMatchDraft;
   }
-  function saveMatchDraft(){
+  async function saveMatchDraft(){
     if(!matchDraft.date) return toast('Inserisci la data.');
     if(!matchDraft.teamA.length || !matchDraft.teamB.length) return toast('Inserisci almeno un giocatore per squadra.');
     const a=new Set(matchDraft.teamA.map(x=>x.playerId)), b=new Set(matchDraft.teamB.map(x=>x.playerId));
@@ -469,10 +469,18 @@
       toast('Salvataggio partita non riuscito');
     }
   }
-  function deleteMatch(mid){
+  async function deleteMatch(mid){
     const m=data.matches.find(x=>x.id===mid); if(!m) return;
     if(!confirm(`Eliminare la partita del ${dateIT(m.date)}? La classifica verrà ricalcolata.`)) return;
-    data.matches=data.matches.filter(x=>x.id!==mid); saveData('Partita eliminata'); renderMatches();
+    const previous=clone(data.matches);
+    data.matches=data.matches.filter(x=>x.id!==mid);
+    try{
+      await saveData('Partita eliminata');
+      renderMatches();
+    }catch(e){
+      data.matches=previous;
+      toast('Eliminazione non riuscita');
+    }
   }
 
   function renderPlayers(){
@@ -522,7 +530,7 @@
         toast('Salvataggio giocatore non riuscito');
       }
     };
-    if(pid) document.getElementById('deletePlayer').onclick=()=>{
+    if(pid) document.getElementById('deletePlayer').onclick=async ()=>{
       const used=data.matches.some(m=>[...m.teamA,...m.teamB].some(e=>e.playerId===pid));
       if(used) return toast('È presente nello storico: disattivalo invece di eliminarlo.');
       if(confirm(`Eliminare ${p.name}?`)){
@@ -600,7 +608,7 @@
     const stats=deriveStats();
     const rows=[...stats.values()].filter(x=>x.played).sort((a,b)=>b.power-a.power);
     const header=['Nome','Giocate','Vinte','Pareggiate','Perse','Gol','Autogol','Media gol','Punti','Media punti','Rendimento','MVP','Critica','Power'];
-    const body=rows.map(x=>{const o=obj.get(x.playerId);return [playerName(x.playerId),x.played,x.wins,x.draws,x.losses,x.goals,x.ownGoals,x.avgGoals,x.points,x.avgPoints,x.formText,x.mvp,x.critica,x.power,o.rating,o.confidence+'%']});
+    const body=rows.map(x=>[playerName(x.playerId),x.played,x.wins,x.draws,x.losses,x.goals,x.ownGoals,x.avgGoals,x.points,x.avgPoints,x.formText,x.mvp,x.critica,x.power]);
     downloadBlob('flannery-classifica.csv','\ufeff'+[header,...body].map(r=>r.map(csvCell).join(';')).join('\n'),'text/csv;charset=utf-8');
   }
 
