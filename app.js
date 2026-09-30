@@ -27,91 +27,73 @@
   let editingMatchId = null;
   let editingPlayerId = null;
   let backendReady = false;
-  let backendFrame = null;
-  let backendSeq = 0;
-  const backendPending = new Map();
 
-  const app = document.getElementById('app');
-  const toastEl = document.getElementById('toast');
-
-  function clone(v){ return JSON.parse(JSON.stringify(v)); }
-  async function saveData(message){
-    if(!backendReady) {
-      toast('Backend non connesso: modifica non salvata');
-      throw new Error('Backend condiviso non connesso');
-    }
-    await backendCall('saveState',{state:data});
-    if(message) toast(message + ' · salvato online');
-  }
-
-  function backendCall(action,payload={}){
+  function publicJsonp(){
     return new Promise((resolve,reject)=>{
-      if(!backendFrame || !backendReady){reject(new Error('Backend non pronto'));return;}
-      const id='fn-'+(++backendSeq)+'-'+Date.now();
-      const timer=setTimeout(()=>{
-        backendPending.delete(id);
-        reject(new Error('Timeout backend'));
-      },15000);
-      backendPending.set(id,{resolve,reject,timer});
-      backendFrame.contentWindow.postMessage({type:'flannery-admin',id,action,...payload},'*');
+      const url=window.FLANNERY_API_URL||'';
+      if(!url){reject(new Error('API non configurata'));return;}
+      const cb='flanneryAdminJsonp_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+      const s=document.createElement('script');
+      const timer=setTimeout(()=>{cleanup();reject(new Error('Timeout API'));},12000);
+      function cleanup(){clearTimeout(timer);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s);}
+      window[cb]=(payload)=>{cleanup();payload&&payload.ok?resolve(payload):reject(new Error((payload&&payload.error)||'Errore API'));};
+      s.onerror=()=>{cleanup();reject(new Error('Errore caricamento API'));};
+      s.src=url+(url.includes('?')?'&':'?')+'action=publicState&prefix='+encodeURIComponent(cb)+'&_='+Date.now();
+      document.head.appendChild(s);
     });
   }
 
+  async function postState(state){
+    const url=window.FLANNERY_API_URL||'';
+    if(!url) throw new Error('API non configurata');
+
+    await fetch(url,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'adminSaveState',state:state})
+    });
+  }
+
+  async function waitForSync(syncId){
+    for(let i=0;i<10;i++){
+      await new Promise(r=>setTimeout(r,500));
+      try{
+        const check=await publicJsonp();
+        if(check.state && check.state._syncId===syncId) return true;
+      }catch(e){}
+    }
+    throw new Error('Il backend non ha confermato il salvataggio');
+  }
+
+  async function saveData(message){
+    const syncId='sync-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+    data._syncId=syncId;
+    await postState(data);
+    await waitForSync(syncId);
+    backendReady=true;
+    if(message) toast(message + ' · salvato online');
+  }
+
   async function initBackendSync(){
-    const base=window.FLANNERY_API_URL||'';
-    if(!base) {
-      toast('Backend non configurato');
-      return;
-    }
-
-    backendFrame=document.getElementById('backendBridge');
-    if(!backendFrame) {
-      toast('Bridge backend mancante');
-      return;
-    }
-
     try{
-      await new Promise((resolve,reject)=>{
-        if(backendReady){resolve();return;}
-        const t=setTimeout(()=>reject(new Error('Bridge non disponibile')),15000);
-        function ready(ev){
-          if(ev.data && ev.data.type==='flannery-admin-ready'){
-            clearTimeout(t);
-            window.removeEventListener('message',ready);
-            backendReady=true;
-            resolve();
-          }
-        }
-        window.addEventListener('message',ready);
-      });
-
-      const remote=await backendCall('getState');
+      const remote=await publicJsonp();
       if(remote && remote.state && Array.isArray(remote.state.players) && Array.isArray(remote.state.matches)){
         data=remote.state;
+        backendReady=true;
       }else{
-        await backendCall('saveState',{state:data});
+        await saveData('Backend inizializzato');
       }
-
       document.body.classList.add('backend-online');
-      toast('Backend condiviso connesso');
       render();
     }catch(e){
       console.warn('Backend condiviso non disponibile',e);
+      backendReady=false;
       document.body.classList.add('backend-offline');
-      toast('Backend non connesso: modifiche disabilitate');
+      toast('Backend non connesso: ' + (e && e.message ? e.message : 'errore'));
     }
   }
 
-  window.addEventListener('message',ev=>{
-    const m=ev.data||{};
-    if(m.type!=='flannery-admin-result' || !m.id) return;
-    const p=backendPending.get(m.id);
-    if(!p) return;
-    clearTimeout(p.timer);
-    backendPending.delete(m.id);
-    if(m.ok) p.resolve(m.result);
-    else p.reject(new Error(m.error||'Errore backend'));
-  });
   function toast(msg){
     toastEl.textContent = msg;
     toastEl.classList.add('show');
