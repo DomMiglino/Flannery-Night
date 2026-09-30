@@ -156,7 +156,6 @@
     if(currentView==='dashboard')renderDashboard();
     else if(currentView==='matches')renderMatches();
     else if(currentView==='players')renderPlayers();
-    else if(currentView==='method')renderMethod();
     else if(currentView==='votes')renderVotes();
   }
 
@@ -259,8 +258,23 @@
       return 'tier-bronze';
     };
     app.innerHTML=`
-      <div class="toolbar"><div><h2 style="margin:0">Giocatori</h2><div class="muted">Rating tecnico basato sulle mediane anonime dei voti ricevuti.</div></div></div>
+      <div class="toolbar"><div><h2 style="margin:0">Giocatori</h2><div class="muted">Rating tecnico basato esclusivamente sulle mediane anonime dei voti ricevuti dagli altri giocatori.</div></div></div>
+
+      <div class="notice">
+        <strong>Come leggere le statistiche:</strong> ogni sigla indica l'attributo del giocatore di movimento e, dopo la barra, il corrispondente attributo del portiere.
+        <div class="metric-list" style="margin-top:12px">
+          <div class="metric"><strong>VEL / TUF</strong>Velocità / Tuffo</div>
+          <div class="metric"><strong>TIR / PRE</strong>Tiro / Presa</div>
+          <div class="metric"><strong>PASS / RIN</strong>Passaggio / Rinvio</div>
+          <div class="metric"><strong>DRI / RIF</strong>Dribbling / Riflessi</div>
+          <div class="metric"><strong>DIF / REA</strong>Difesa / Reattività</div>
+          <div class="metric"><strong>FIS / PIA</strong>Fisico / Piazzamento</div>
+        </div>
+        <p style="margin:12px 0 0">Per ogni giocatore vengono pubblicate soltanto le <strong>mediane aggregate</strong>. L'Overall è calcolato sulle mediane con ponderazioni diverse in base al ruolo. I voti individuali non sono pubblici.</p>
+      </div>
+
       <div class="notice rating-legend"><strong>Fasce Overall:</strong> <span class="legend-dot gold"></span> Oro 90–100 · <span class="legend-dot silver"></span> Argento 80–89 · <span class="legend-dot bronze"></span> Bronzo fino a 79</div>
+
       <div class="player-grid">${players.map(p=>{
         const r=peerRatings.get(p.id);
         const voters=Number(r?.voters||0);
@@ -272,17 +286,6 @@
           <div class="muted" style="margin-top:10px">${voters} votant${voters===1?'e':'i'}</div>
         </div>`;
       }).join('')}</div>`;
-  }
-
-  function renderMethod(){
-    app.innerHTML=`
-      <div class="card pad">
-        <h2>Rating</h2>
-        <p>Il <strong>Rating tecnico del giocatore</strong> deriva esclusivamente dai voti anonimi assegnati dagli altri calciatori. Nessun risultato di squadra, MVP o altro indicatore entra nel Rating.</p>
-        <p>Ogni votante può valutare tutti tranne sé stesso sui sei attributi originari: VEL/TUF, TIR/PRE, PASS/RIN, DRI/RIF, DIF/REA e FIS/PIA. Per ogni giocatore vengono pubblicate soltanto le mediane aggregate.</p>
-        <p>L'Overall è calcolato sulle mediane con le stesse ponderazioni per ruolo già adottate nel foglio originale.</p>
-        <div class="notice warn">I voti individuali non sono pubblici. Un giocatore può aggiornare i propri voti, ma esiste una sola valutazione valida per ogni coppia votante → giocatore.</div>
-      </div>`;
   }
 
   function loginForm(){
