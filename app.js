@@ -22,6 +22,10 @@
     ['dribbles','Dribbling riusciti'], ['recoveries','Recuperi'], ['duelsWon','Duelli vinti'], ['saves','Parate']
   ];
 
+  const app = document.getElementById('app');
+  const toastEl = document.getElementById('toast');
+  function clone(v){ return JSON.parse(JSON.stringify(v)); }
+
   let data = clone(window.FLANNERY_INITIAL_DATA);
   let currentView = 'dashboard';
   let editingMatchId = null;
