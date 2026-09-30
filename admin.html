@@ -29,16 +29,8 @@
   <main id="app" class="app-shell"></main>
   <div id="toast" class="toast" aria-live="polite"></div>
 
-  <iframe id="backendBridge" src="" style="display:none" aria-hidden="true"></iframe>
-  <script src="data.js?v=20260930-sync3"></script>
-  <script src="config.js?v=20260930-sync3"></script>
-  <script src="app.js?v=20260930-adminfix1"></script>
-  <script>
-    (function(){
-      var f=document.getElementById('backendBridge');
-      var base=window.FLANNERY_API_URL||'';
-      if(base) f.src=base+(base.indexOf('?')>=0?'&':'?')+'page=adminbridge';
-    })();
-  </script>
+  <script src="data.js?v=20260930-sync4"></script>
+  <script src="config.js?v=20260930-sync4"></script>
+  <script src="app.js?v=20260930-sync4"></script>
 </body>
 </html>
