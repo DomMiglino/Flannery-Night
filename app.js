@@ -466,7 +466,8 @@
       await saveData('Partita salvata');
       matchDraft=null; editingMatchId=null; setView('matches');
     }catch(e){
-      toast('Salvataggio partita non riuscito');
+      console.error('Salvataggio partita non riuscito',e);
+      toast('Errore salvataggio: ' + (e && e.message ? e.message : 'backend'));
     }
   }
   async function deleteMatch(mid){
@@ -479,7 +480,8 @@
       renderMatches();
     }catch(e){
       data.matches=previous;
-      toast('Eliminazione non riuscita');
+      console.error('Eliminazione partita non riuscita',e);
+      toast('Errore eliminazione: ' + (e && e.message ? e.message : 'backend'));
     }
   }
 
