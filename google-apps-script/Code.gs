@@ -2,7 +2,8 @@ var FN = {
   DB_PROP: 'FLANNERY_DB_ID',
   DB_NAME: 'Flannery Night Backend',
   ACCESS: 'FN_ACCESS',
-  VOTES: 'FN_VOTES'
+  VOTES: 'FN_VOTES',
+  STATE: 'FN_STATE'
 };
 
 var PLAYERS = [
@@ -59,6 +60,12 @@ function setupBackend() {
     votes.appendRow(['voterId','targetId','velTuf','tirPre','passRin','driRif','difRea','fisPia','updatedAt']);
   }
 
+  var state = ss.getSheetByName(FN.STATE);
+  if (!state) {
+    state = ss.insertSheet(FN.STATE);
+    state.appendRow(['part','value','updatedAt']);
+  }
+
   var defaultSheet = ss.getSheetByName('Foglio1');
   if (!defaultSheet) defaultSheet = ss.getSheetByName('Sheet1');
   if (defaultSheet && ss.getSheets().length > 2) {
@@ -84,8 +91,14 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
+  if (p.page === 'adminbridge') {
+    return HtmlService.createHtmlOutput(adminBridgeHtml_())
+      .setTitle('Flannery Night Admin Bridge')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
   if ((p.action || 'health') === 'publicState') {
-    var payload = {ok:true, state:null, ratings:getMedians_()};
+    var payload = {ok:true, state:getSeasonState_(), ratings:getMedians_()};
     var cb = String(p.prefix || '');
     if (cb && /^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(cb)) {
       return ContentService.createTextOutput(cb + '(' + JSON.stringify(payload) + ');')
@@ -139,6 +152,79 @@ function uiSubmitVote(voterId, pin, targetId, v) {
   return {ok:true, ratings:getMedians_()};
 }
 
+function uiAdminGetState() {
+  ensureStorage_();
+  return {ok:true, state:getSeasonState_()};
+}
+
+function uiAdminSaveState(state) {
+  ensureStorage_();
+  if (!state || !Array.isArray(state.players) || !Array.isArray(state.matches)) {
+    throw new Error('Stato stagione non valido.');
+  }
+  saveSeasonState_(state);
+  return {ok:true, savedAt:new Date().toISOString()};
+}
+
+function getSeasonState_() {
+  var sh = getDb().getSheetByName(FN.STATE);
+  if (!sh || sh.getLastRow() < 2) return null;
+
+  var rows = sh.getRange(2,1,sh.getLastRow()-1,2).getValues();
+  rows.sort(function(a,b){ return Number(a[0]) - Number(b[0]); });
+
+  var text = '';
+  for (var i=0; i<rows.length; i++) {
+    if (rows[i][1] !== '' && rows[i][1] !== null) text += String(rows[i][1]);
+  }
+  if (!text) return null;
+
+  try {
+    var state = JSON.parse(text);
+    if (!state || !Array.isArray(state.players) || !Array.isArray(state.matches)) return null;
+    return state;
+  } catch (err) {
+    return null;
+  }
+}
+
+function saveSeasonState_(state) {
+  var sh = getDb().getSheetByName(FN.STATE);
+  var text = JSON.stringify(state);
+  var chunkSize = 30000;
+  var rows = [];
+  var part = 1;
+
+  for (var i=0; i<text.length; i+=chunkSize) {
+    rows.push([part++, text.substring(i,i+chunkSize), new Date()]);
+  }
+
+  if (sh.getLastRow() > 1) {
+    sh.getRange(2,1,sh.getLastRow()-1,3).clearContent();
+  }
+  if (rows.length) {
+    sh.getRange(2,1,rows.length,3).setValues(rows);
+  }
+}
+
+function adminBridgeHtml_() {
+  return '<!doctype html><html><head><base target="_top"></head><body>' +
+    '<script>' +
+    'window.addEventListener("message",function(ev){' +
+      'var m=ev.data||{};' +
+      'if(!m||m.type!=="flannery-admin")return;' +
+      'var id=m.id;' +
+      'var done=function(result){parent.postMessage({type:"flannery-admin-result",id:id,ok:true,result:result},"*");};' +
+      'var fail=function(err){parent.postMessage({type:"flannery-admin-result",id:id,ok:false,error:(err&&err.message)||String(err)},"*");};' +
+      'var r=google.script.run.withSuccessHandler(done).withFailureHandler(fail);' +
+      'if(m.action==="getState")r.uiAdminGetState();' +
+      'else if(m.action==="saveState")r.uiAdminSaveState(m.state);' +
+      'else fail(new Error("Azione non valida"));' +
+    '});' +
+    'parent.postMessage({type:"flannery-admin-ready"},"*");' +
+    '<\/script></body></html>';
+}
+
 function ensureStorage_() {
   var ss = getDb();
   var access = ss.getSheetByName(FN.ACCESS);
@@ -162,6 +248,12 @@ function ensureStorage_() {
   if (!votes) {
     votes = ss.insertSheet(FN.VOTES);
     votes.appendRow(['voterId','targetId','velTuf','tirPre','passRin','driRif','difRea','fisPia','updatedAt']);
+  }
+
+  var state = ss.getSheetByName(FN.STATE);
+  if (!state) {
+    state = ss.insertSheet(FN.STATE);
+    state.appendRow(['part','value','updatedAt']);
   }
 }
 
@@ -400,6 +492,7 @@ function diagnoseFlannery() {
     spreadsheetId:getDb().getId(),
     accessRows:getDb().getSheetByName(FN.ACCESS).getLastRow(),
     votesRows:getDb().getSheetByName(FN.VOTES).getLastRow(),
+    stateParts:getDb().getSheetByName(FN.STATE).getLastRow()-1,
     mimmoHasPin:hasUserPin_('mimmo')
   };
 }
