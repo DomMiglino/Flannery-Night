@@ -176,6 +176,7 @@
       draws:x=>x.draws,
       losses:x=>x.losses,
       goals:x=>x.goals,
+      ownGoals:x=>x.ownGoals,
       avgGoals:x=>x.avgGoals,
       points:x=>x.points,
       avgPoints:x=>x.avgPoints,
@@ -208,10 +209,10 @@
         <div class="kpi"><div class="label">Capocannoniere</div><div class="value">${scorer?esc(playerName(scorer.playerId)):'-'}</div></div>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>#</th>${th('name','Giocatore','name')}${th('played','G')}${th('wins','V')}${th('draws','P')}${th('losses','S')}${th('goals','Gol')}${th('avgGoals','Media gol')}${th('points','Punti')}${th('avgPoints','Media pt')}${th('formIndex','Forma')}${th('mvp','MVP')}${th('critica','Critica')}${th('power','Power')}</tr></thead>
+        <thead><tr><th>#</th>${th('name','Giocatore','name')}${th('played','G')}${th('wins','V')}${th('draws','P')}${th('losses','S')}${th('goals','Gol')}${th('ownGoals','AG')}${th('avgGoals','Media gol')}${th('points','Punti')}${th('avgPoints','Media pt')}${th('formIndex','Forma')}${th('mvp','MVP')}${th('critica','Critica')}${th('power','Power')}</tr></thead>
         <tbody>${rows.map((x,i)=>`<tr>
           <td class="rank">${i+1}</td><td class="name"><strong>${esc(playerName(x.playerId))}</strong></td>
-          <td>${x.played}</td><td>${x.wins}</td><td>${x.draws}</td><td>${x.losses}</td><td>${x.goals}</td><td>${fmt1(x.avgGoals)}</td><td>${x.points}</td><td>${fmt1(x.avgPoints)}</td>
+          <td>${x.played}</td><td>${x.wins}</td><td>${x.draws}</td><td>${x.losses}</td><td>${x.goals}</td><td>${x.ownGoals}</td><td>${fmt1(x.avgGoals)}</td><td>${x.points}</td><td>${fmt1(x.avgPoints)}</td>
           <td>${formBadge(x)}</td><td>${x.mvp}</td><td>${x.critica}</td>
           <td class="power">${fmt1(x.power)}</td>
         </tr>`).join('')}</tbody>
