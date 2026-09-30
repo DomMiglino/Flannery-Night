@@ -29,7 +29,16 @@
   <main id="app" class="app-shell"></main>
   <div id="toast" class="toast" aria-live="polite"></div>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <iframe id="backendBridge" src="" style="display:none" aria-hidden="true"></iframe>
+  <script src="data.js?v=20260930-sync1"></script>
+  <script src="config.js?v=20260930-sync1"></script>
+  <script>
+    (function(){
+      var f=document.getElementById('backendBridge');
+      var base=window.FLANNERY_API_URL||'';
+      if(base) f.src=base+(base.indexOf('?')>=0?'&':'?')+'page=adminbridge';
+    })();
+  </script>
+  <script src="app.js?v=20260930-sync1"></script>
 </body>
 </html>
