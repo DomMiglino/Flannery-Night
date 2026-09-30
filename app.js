@@ -1,7 +1,6 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'flanneryNightDataV1';
   const ROLE_LABELS = {
     P: 'Portiere', DC: 'Difensore centrale', DL: 'Difensore laterale',
     CC: 'Centrocampista centrale', CL: 'Centrocampista laterale', PC: 'Punta centrale'
@@ -23,7 +22,7 @@
     ['dribbles','Dribbling riusciti'], ['recoveries','Recuperi'], ['duelsWon','Duelli vinti'], ['saves','Parate']
   ];
 
-  let data = loadData();
+  let data = clone(window.FLANNERY_INITIAL_DATA);
   let currentView = 'dashboard';
   let editingMatchId = null;
   let editingPlayerId = null;
@@ -36,29 +35,13 @@
   const toastEl = document.getElementById('toast');
 
   function clone(v){ return JSON.parse(JSON.stringify(v)); }
-  function loadData(){
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if(saved) return JSON.parse(saved);
-    } catch(e) { console.warn('LocalStorage non disponibile', e); }
-    return clone(window.FLANNERY_INITIAL_DATA);
-  }
-
-  function saveLocal(){
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-    catch(e){ console.warn('Salvataggio locale non riuscito', e); }
-  }
-
   async function saveData(message){
-    saveLocal();
-    if(message) toast(message + ' · sincronizzazione...');
-    try{
-      await backendCall('saveState',{state:data});
-      if(message) toast(message + ' · sincronizzato');
-    }catch(e){
-      console.warn('Sincronizzazione backend non riuscita',e);
-      if(message) toast(message + ' · solo locale');
+    if(!backendReady) {
+      toast('Backend non connesso: modifica non salvata');
+      throw new Error('Backend condiviso non connesso');
     }
+    await backendCall('saveState',{state:data});
+    if(message) toast(message + ' · salvato online');
   }
 
   function backendCall(action,payload={}){
@@ -68,7 +51,7 @@
       const timer=setTimeout(()=>{
         backendPending.delete(id);
         reject(new Error('Timeout backend'));
-      },12000);
+      },15000);
       backendPending.set(id,{resolve,reject,timer});
       backendFrame.contentWindow.postMessage({type:'flannery-admin',id,action,...payload},'*');
     });
@@ -76,13 +59,21 @@
 
   async function initBackendSync(){
     const base=window.FLANNERY_API_URL||'';
-    if(!base) return;
+    if(!base) {
+      toast('Backend non configurato');
+      return;
+    }
+
     backendFrame=document.getElementById('backendBridge');
-    if(!backendFrame) return;
+    if(!backendFrame) {
+      toast('Bridge backend mancante');
+      return;
+    }
 
     try{
       await new Promise((resolve,reject)=>{
-        const t=setTimeout(()=>reject(new Error('Bridge non disponibile')),12000);
+        if(backendReady){resolve();return;}
+        const t=setTimeout(()=>reject(new Error('Bridge non disponibile')),15000);
         function ready(ev){
           if(ev.data && ev.data.type==='flannery-admin-ready'){
             clearTimeout(t);
@@ -97,13 +88,17 @@
       const remote=await backendCall('getState');
       if(remote && remote.state && Array.isArray(remote.state.players) && Array.isArray(remote.state.matches)){
         data=remote.state;
-        saveLocal();
       }else{
         await backendCall('saveState',{state:data});
       }
+
+      document.body.classList.add('backend-online');
+      toast('Backend condiviso connesso');
       render();
     }catch(e){
       console.warn('Backend condiviso non disponibile',e);
+      document.body.classList.add('backend-offline');
+      toast('Backend non connesso: modifiche disabilitate');
     }
   }
 
@@ -467,7 +462,12 @@
     if(editingMatchId){
       const i=data.matches.findIndex(x=>x.id===editingMatchId); data.matches[i]=clone(matchDraft);
     } else data.matches.push(clone(matchDraft));
-    saveData('Partita salvata'); matchDraft=null; editingMatchId=null; setView('matches');
+    try{
+      await saveData('Partita salvata');
+      matchDraft=null; editingMatchId=null; setView('matches');
+    }catch(e){
+      toast('Salvataggio partita non riuscito');
+    }
   }
   function deleteMatch(mid){
     const m=data.matches.find(x=>x.id===mid); if(!m) return;
@@ -509,18 +509,33 @@
     </div>`;
     const close=()=>modal.classList.add('hidden');
     document.getElementById('closePlayer').onclick=close; document.getElementById('cancelPlayer').onclick=close;
-    document.getElementById('savePlayer').onclick=()=>{
+    document.getElementById('savePlayer').onclick=async ()=>{
       const name=document.getElementById('pName').value.trim(); if(!name) return toast('Inserisci il nome.');
       const duplicate=data.players.some(x=>x.id!==p.id && x.name.toLowerCase()===name.toLowerCase()); if(duplicate) return toast('Esiste già un giocatore con questo nome.');
       p.name=name; p.role=document.getElementById('pRole').value; p.nationUrl=document.getElementById('pNation').value.trim(); p.active=document.getElementById('pActive').checked;
       Object.keys(ATTR_LABELS).forEach(k=>{const v=document.getElementById('p-'+k).value;p.legacy[k]=v===''?null:Math.max(0,Math.min(100,Number(v)))});
       if(pid){ data.players[data.players.findIndex(x=>x.id===pid)]=p; } else data.players.push(p);
-      saveData('Giocatore salvato'); close(); renderPlayers();
+      try{
+        await saveData('Giocatore salvato');
+        close(); renderPlayers();
+      }catch(e){
+        toast('Salvataggio giocatore non riuscito');
+      }
     };
     if(pid) document.getElementById('deletePlayer').onclick=()=>{
       const used=data.matches.some(m=>[...m.teamA,...m.teamB].some(e=>e.playerId===pid));
       if(used) return toast('È presente nello storico: disattivalo invece di eliminarlo.');
-      if(confirm(`Eliminare ${p.name}?`)){data.players=data.players.filter(x=>x.id!==pid);saveData('Giocatore eliminato');close();renderPlayers();}
+      if(confirm(`Eliminare ${p.name}?`)){
+        const previous=clone(data.players);
+        data.players=data.players.filter(x=>x.id!==pid);
+        try{
+          await saveData('Giocatore eliminato');
+          close(); renderPlayers();
+        }catch(e){
+          data.players=previous;
+          toast('Eliminazione giocatore non riuscita');
+        }
+      }
     };
   }
 
@@ -552,19 +567,29 @@
   }
 
   function renderBackup(){
-    app.innerHTML=`<div class="toolbar"><div><h2 style="margin:0 0 4px">Backup e portabilità</h2><div class="muted">Il prototipo salva sul browser. Esporta periodicamente un backup.</div></div></div>
-      <div class="card pad"><h3>Dati locali</h3><p>Questa versione funziona anche senza server e conserva le modifiche in <strong>localStorage</strong> sul dispositivo. Per usare la stessa base dati da più telefoni serve collegarla a un backend condiviso.</p>
-      <div class="backup-actions"><button id="exportJson" class="primary">Esporta backup JSON</button><button id="importJson" class="secondary">Importa backup JSON</button><button id="exportCsv" class="secondary">Esporta classifica CSV</button><button id="resetData" class="danger">Ripristina dati Excel iniziali</button><input id="importFile" class="file-input" type="file" accept="application/json,.json"></div>
-      <hr><div class="muted">Giocatori: ${data.players.length} · Partite: ${data.matches.length} · Stagione: ${esc(data.season||'')}</div></div>`;
+    app.innerHTML=`<div class="toolbar"><div><h2 style="margin:0 0 4px">Backup e backend</h2><div class="muted">I dati operativi sono salvati nel backend Google condiviso.</div></div></div>
+      <div class="card pad"><h3>Dati condivisi</h3><p>Giocatori e partite vengono letti e salvati nel backend Apps Script/Google Sheet. Il browser non è più la fonte dati.</p>
+      <div class="backup-actions"><button id="exportJson" class="primary">Esporta backup JSON</button><button id="importJson" class="secondary">Importa backup JSON</button><button id="exportCsv" class="secondary">Esporta classifica CSV</button><input id="importFile" class="file-input" type="file" accept="application/json,.json"></div>
+      <hr><div class="muted">Stato backend: <strong>${backendReady?'connesso':'non connesso'}</strong> · Giocatori: ${data.players.length} · Partite: ${data.matches.length} · Stagione: ${esc(data.season||'')}</div></div>`;
     document.getElementById('exportJson').onclick=()=>downloadBlob(`flannery-night-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(data,null,2),'application/json');
     document.getElementById('importJson').onclick=()=>document.getElementById('importFile').click();
     document.getElementById('importFile').onchange=async e=>{
       const f=e.target.files[0]; if(!f) return;
-      try{ const x=JSON.parse(await f.text()); if(!Array.isArray(x.players)||!Array.isArray(x.matches)) throw new Error('Formato non valido'); data=x; saveData('Backup importato'); renderBackup(); }
-      catch(err){toast('File JSON non valido');}
+      try{
+        const x=JSON.parse(await f.text());
+        if(!Array.isArray(x.players)||!Array.isArray(x.matches)) throw new Error('Formato non valido');
+        const previous=data;
+        data=x;
+        try{
+          await saveData('Backup importato');
+          renderBackup();
+        }catch(err){
+          data=previous;
+          throw err;
+        }
+      }catch(err){toast('Importazione non riuscita');}
     };
     document.getElementById('exportCsv').onclick=exportStandingsCsv;
-    document.getElementById('resetData').onclick=()=>{if(confirm('Ripristinare i dati iniziali importati dall’Excel? Le modifiche locali andranno perse.')){data=clone(window.FLANNERY_INITIAL_DATA);saveData('Dati iniziali ripristinati');renderBackup();}};
   }
 
   function downloadBlob(name,text,type){
