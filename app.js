@@ -9,6 +9,14 @@
     velTuf: 'VEL/TUF', tirPre: 'TIR/PRE', passRin: 'PASS/RIN',
     driRif: 'DRI/RIF', difRea: 'DIF/REA', fisPia: 'FIS/PIA'
   };
+  const RATING_ATTRS = [
+    ['vel_tuf','VEL/TUF'],
+    ['tir_pre','TIR/PRE'],
+    ['pass_rin','PASS/RIN'],
+    ['dri_rif','DRI/RIF'],
+    ['dif_rea','DIF/REA'],
+    ['fis_pia','FIS/PIA']
+  ];
   const OVR_WEIGHTS = {
     P:  {velTuf:.25,tirPre:.15,passRin:.10,driRif:.25,difRea:.10,fisPia:.15},
     DC: {velTuf:.15,tirPre:0,passRin:.10,driRif:.05,difRea:.40,fisPia:.30},
@@ -31,6 +39,7 @@
   let editingMatchId = null;
   let editingPlayerId = null;
   let backendReady = false;
+  let peerRatings = new Map();
 
   function publicJsonp(){
     return new Promise((resolve,reject)=>{
@@ -84,9 +93,13 @@
       const remote=await publicJsonp();
       if(remote && remote.state && Array.isArray(remote.state.players) && Array.isArray(remote.state.matches)){
         data=remote.state;
+        peerRatings=new Map((remote.ratings||[]).map(x=>[x.player_id,x]));
         backendReady=true;
       }else{
         await saveData('Backend inizializzato');
+      }
+      if(remote && Array.isArray(remote.ratings)){
+        peerRatings=new Map(remote.ratings.map(x=>[x.player_id,x]));
       }
       document.body.classList.add('backend-online');
       render();
@@ -239,11 +252,21 @@
     return out;
   }
 
-  function setView(view){
+  async function setView(view){
     currentView=view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.view===view));
     render();
     window.scrollTo({top:0,behavior:'smooth'});
+
+    if(view==='players'){
+      try{
+        const remote=await publicJsonp();
+        peerRatings=new Map((remote.ratings||[]).map(x=>[x.player_id,x]));
+        if(currentView==='players') renderPlayers();
+      }catch(e){
+        console.warn('Aggiornamento rating admin non riuscito',e);
+      }
+    }
   }
   function render(){
     if(currentView==='dashboard') renderDashboard();
@@ -472,21 +495,68 @@
   }
 
   function renderPlayers(){
-    const stats=deriveStats(), profiles=objectiveProfiles();
-    const ps=[...data.players].sort((a,b)=>(b.active!==false)-(a.active!==false) || (computeLegacyOvr(b)||0)-(computeLegacyOvr(a)||0) || a.name.localeCompare(b.name,'it'));
+    const stats=deriveStats();
+    const ps=[...data.players].sort((a,b)=>
+      (b.active!==false)-(a.active!==false) ||
+      Number(peerRatings.get(b.id)?.overall||-1)-Number(peerRatings.get(a.id)?.overall||-1) ||
+      a.name.localeCompare(b.name,'it')
+    );
+
+    const tierClass=(voters,overall)=>{
+      if(!voters || overall===null || overall===undefined) return '';
+      const n=Number(overall);
+      if(n>=90) return 'tier-gold';
+      if(n>=80) return 'tier-silver';
+      return 'tier-bronze';
+    };
+
     app.innerHTML=`
-      <div class="toolbar"><div><h2 style="margin:0 0 4px">Giocatori</h2><div class="muted">Anagrafica e valori tecnici del foglio originale, affiancati al rating automatico.</div></div><button id="newPlayer" class="primary">+ Giocatore</button></div>
-      <div class="notice warn">I sei valori manuali del foglio Excel restano disponibili solo nell’area admin per compatibilità storica. Il Rating pubblico deriva esclusivamente dalle votazioni degli altri giocatori.</div>
+      <div class="toolbar">
+        <div>
+          <h2 style="margin:0 0 4px">Giocatori</h2>
+          <div class="muted">Stessi rating pubblici basati sulle mediane dei voti ricevuti. Da qui puoi anche gestire l'anagrafica.</div>
+        </div>
+        <button id="newPlayer" class="primary">+ Giocatore</button>
+      </div>
+
+      <div class="notice rating-legend">
+        <strong>Overall community:</strong>
+        <span class="legend-dot gold"></span> Oro 90–100 ·
+        <span class="legend-dot silver"></span> Argento 80–89 ·
+        <span class="legend-dot bronze"></span> Bronzo fino a 79
+      </div>
+
       <div class="player-grid">${ps.map(p=>{
-        const ovr=computeLegacyOvr(p), s=stats.get(p.id), prof=profiles.get(p.id);
-        return `<div class="card player-card" style="${p.active===false?'opacity:.55':''}">
-          <div class="player-top"><div><div class="role">${esc(p.role||'SENZA RUOLO')} · ${esc(ROLE_LABELS[p.role]||'')}</div><div class="player-name">${nationImg(p)} ${esc(p.name)}</div><div class="muted">${p.active===false?'Non attivo':`${s.played} partite · ${s.goals} gol`}</div></div><button class="secondary small" data-player-edit="${p.id}">Modifica</button></div>
-          <div class="rating-pair"><div class="rating-box"><div class="muted">OVR Excel</div><div class="num">${ovr??'—'}</div></div></div>
-          <div class="attrs">${Object.entries(ATTR_LABELS).map(([k,l])=>`<div class="attr"><span>${l}</span>${p.legacy?.[k]??'—'}</div>`).join('')}</div>
-          ${prof?`<div class="muted" style="margin-top:9px">Profilo eventi: ${prof.tracked} partite tracciate</div>`:''}
+        const s=stats.get(p.id);
+        const r=peerRatings.get(p.id);
+        const voters=Number(r?.voters||0);
+        const tier=tierClass(voters,r?.overall);
+
+        return `<div class="card player-card ${tier}" style="${p.active===false?'opacity:.55':''}">
+          <div class="player-top">
+            <div>
+              <div class="role">${esc(p.role||'SENZA RUOLO')} · ${esc(ROLE_LABELS[p.role]||'')}</div>
+              <div class="player-name">${nationImg(p)} ${esc(p.name)}</div>
+              <div class="muted">${p.active===false?'Non attivo':`${s?.played||0} partite · ${s?.goals||0} gol`}</div>
+            </div>
+            <button class="secondary small" data-player-edit="${p.id}">Modifica</button>
+          </div>
+
+          <div class="rating-box" style="margin-top:12px">
+            <div class="muted">OVR</div>
+            <div class="num">${voters?fmt1(r.overall):'n/d'}</div>
+          </div>
+
+          <div class="attrs">
+            ${RATING_ATTRS.map(([k,l])=>`<div class="attr"><span>${l}</span><strong>${voters?fmt1(r[k]):'n/d'}</strong></div>`).join('')}
+          </div>
+
+          <div class="muted" style="margin-top:10px">${voters} votant${voters===1?'e':'i'}</div>
         </div>`;
       }).join('')}</div>
+
       <div id="playerModal" class="modal hidden"></div>`;
+
     document.getElementById('newPlayer').onclick=()=>openPlayerModal();
     app.querySelectorAll('[data-player-edit]').forEach(b=>b.onclick=()=>openPlayerModal(b.dataset.playerEdit));
   }
