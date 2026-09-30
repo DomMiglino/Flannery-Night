@@ -130,9 +130,18 @@
     peerRatings=new Map((r.ratings||[]).map(x=>[x.player_id,x]));
   }
 
-  function setView(v){
+  async function setView(v){
     currentView=v;
     document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+
+    if(v==='players' && db){
+      try{
+        await loadPeerRatings();
+      }catch(e){
+        console.warn('Aggiornamento rating non disponibile',e);
+      }
+    }
+
     render();
     window.scrollTo({top:0,behavior:'smooth'});
   }
