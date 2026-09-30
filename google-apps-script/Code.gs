@@ -229,6 +229,8 @@ function saveSeasonState_(state) {
   if (rows.length) {
     sh.getRange(2,1,rows.length,3).setValues(rows);
   }
+
+  syncAccessPlayersFromState_();
 }
 
 function adminBridgeHtml_() {
@@ -279,6 +281,65 @@ function ensureStorage_() {
     state = ss.insertSheet(FN.STATE);
     state.appendRow(['part','value','updatedAt']);
   }
+
+  syncAccessPlayersFromState_();
+}
+
+function syncAccessPlayersFromState_() {
+  var state = getSeasonState_();
+  if (!state || !Array.isArray(state.players)) return;
+
+  var sh = getDb().getSheetByName(FN.ACCESS);
+  if (!sh) return;
+
+  var data = sh.getDataRange().getValues();
+  if (!data.length) return;
+  var h = headerMap_(data[0]);
+  var rowById = {};
+
+  for (var i=1; i<data.length; i++) {
+    rowById[String(data[i][h.playerId])] = i + 1;
+  }
+
+  var seen = {};
+  for (i=0; i<state.players.length; i++) {
+    var p = state.players[i] || {};
+    var id = String(p.id || '').trim();
+    if (!id) continue;
+
+    seen[id] = true;
+    var active = p.active !== false;
+    var row = rowById[id];
+
+    if (row) {
+      sh.getRange(row,h.name+1).setValue(String(p.name || id));
+      sh.getRange(row,h.role+1).setValue(String(p.role || ''));
+      sh.getRange(row,h.active+1).setValue(active);
+      sh.getRange(row,h.updatedAt+1).setValue(new Date());
+    } else {
+      sh.appendRow([
+        id,
+        String(p.name || id),
+        String(p.role || ''),
+        '',
+        '',
+        '',
+        active,
+        new Date()
+      ]);
+    }
+  }
+
+  // Players no longer present in the shared roster are disabled, never deleted,
+  // so existing PIN hashes and historical votes remain intact.
+  data = sh.getDataRange().getValues();
+  h = headerMap_(data[0]);
+  for (i=1; i<data.length; i++) {
+    var existingId = String(data[i][h.playerId]);
+    if (!seen[existingId]) {
+      sh.getRange(i+1,h.active+1).setValue(false);
+    }
+  }
 }
 
 function ensurePinOrigin_(sheet) {
@@ -292,9 +353,25 @@ function ensurePinOrigin_(sheet) {
 }
 
 function playerObjects_() {
+  var state = getSeasonState_();
   var out = [];
-  for (var i=0; i<PLAYERS.length; i++) {
-    out.push({id:PLAYERS[i][0], name:PLAYERS[i][1], role:PLAYERS[i][2]});
+
+  if (state && Array.isArray(state.players)) {
+    for (var i=0; i<state.players.length; i++) {
+      var p = state.players[i] || {};
+      if (p.active === false || !p.id) continue;
+      out.push({
+        id:String(p.id),
+        name:String(p.name || p.id),
+        role:String(p.role || '')
+      });
+    }
+    return out;
+  }
+
+  // Fallback only before FN_STATE has ever been initialized.
+  for (var j=0; j<PLAYERS.length; j++) {
+    out.push({id:PLAYERS[j][0], name:PLAYERS[j][1], role:PLAYERS[j][2]});
   }
   return out;
 }
@@ -385,6 +462,13 @@ function validateVote_(v) {
   if (!v.voterId || !v.targetId) throw new Error('Giocatore non valido.');
   if (String(v.voterId) === String(v.targetId)) throw new Error('Non puoi votare te stesso.');
 
+  var roster = playerObjects_();
+  var valid = {};
+  for (var j=0; j<roster.length; j++) valid[String(roster[j].id)] = true;
+  if (!valid[String(v.voterId)] || !valid[String(v.targetId)]) {
+    throw new Error('Giocatore non presente o non attivo.');
+  }
+
   var keys = ['velTuf','tirPre','passRin','driRif','difRea','fisPia'];
   for (var i=0; i<keys.length; i++) {
     var n = Number(v[keys[i]]);
@@ -437,11 +521,24 @@ function getMedians_() {
   }
 
   var result = [];
-  for (i=0; i<PLAYERS.length; i++) {
-    var pid = PLAYERS[i][0];
+  var roster = playerObjects_();
+
+  for (i=0; i<roster.length; i++) {
+    var pid = String(roster[i].id);
     var a = out[pid];
+
     if (!a) {
-      result.push({player_id:pid,voters:0,vel_tuf:null,tir_pre:null,pass_rin:null,dri_rif:null,dif_rea:null,fis_pia:null,overall:null});
+      result.push({
+        player_id:pid,
+        voters:0,
+        vel_tuf:null,
+        tir_pre:null,
+        pass_rin:null,
+        dri_rif:null,
+        dif_rea:null,
+        fis_pia:null,
+        overall:null
+      });
       continue;
     }
 
@@ -455,9 +552,12 @@ function getMedians_() {
       dif_rea:median_(a.dif_rea),
       fis_pia:median_(a.fis_pia)
     };
-    r.overall = round1_(overall_(roles[pid],r));
+
+    var role = String(roster[i].role || roles[pid] || '');
+    r.overall = round1_(overall_(role,r));
     result.push(r);
   }
+
   return result;
 }
 
