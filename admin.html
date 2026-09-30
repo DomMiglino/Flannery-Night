@@ -30,8 +30,9 @@
   <div id="toast" class="toast" aria-live="polite"></div>
 
   <iframe id="backendBridge" src="" style="display:none" aria-hidden="true"></iframe>
-  <script src="data.js?v=20260930-sync1"></script>
-  <script src="config.js?v=20260930-sync1"></script>
+  <script src="data.js?v=20260930-sync2"></script>
+  <script src="config.js?v=20260930-sync2"></script>
+  <script src="app.js?v=20260930-sync2"></script>
   <script>
     (function(){
       var f=document.getElementById('backendBridge');
@@ -39,6 +40,5 @@
       if(base) f.src=base+(base.indexOf('?')>=0?'&':'?')+'page=adminbridge';
     })();
   </script>
-  <script src="app.js?v=20260930-sync1"></script>
 </body>
 </html>
