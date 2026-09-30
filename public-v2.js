@@ -22,6 +22,10 @@
   let myVotes = new Map();
   let dashboardSort = {key:'power', dir:'desc'};
 
+  function removeLegacyDetailsTab(){
+    document.querySelectorAll('[data-view="details"]').forEach(el=>el.remove());
+  }
+
   const app = document.getElementById('app');
   const toastEl = document.getElementById('toast');
 
@@ -363,6 +367,7 @@
       <iframe title="Votazioni Flannery Night" src="${esc(src)}" style="width:100%;height:1500px;border:0;border-radius:18px;background:#0f1713"></iframe>`;
   }
 
+  removeLegacyDetailsTab();
   document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 
   (async()=>{
