@@ -1,5 +1,6 @@
 var FN = {
-  SHEET_ID: '1HovZP5Owurvko_mnl2UeG08C38_HyytLKWSz8xx2BDw',
+  DB_PROP: 'FLANNERY_DB_ID',
+  DB_NAME: 'Flannery Night Backend',
   ACCESS: 'FN_ACCESS',
   VOTES: 'FN_VOTES'
 };
@@ -14,6 +15,64 @@ var PLAYERS = [
   ['pasquale','Pasquale','PC'],['ale','Ale','PC'],['peppe','Peppe','PC'],['frank','Frank','PC'],['lozio','LoZio','PC'],
   ['samuel','Samuel','PC']
 ];
+
+function getDb() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty(FN.DB_PROP);
+
+  if (id) {
+    try {
+      return SpreadsheetApp.openById(id);
+    } catch (err) {
+      props.deleteProperty(FN.DB_PROP);
+    }
+  }
+
+  var ss = SpreadsheetApp.create(FN.DB_NAME);
+  props.setProperty(FN.DB_PROP, ss.getId());
+  return ss;
+}
+
+function setupBackend() {
+  var ss = getDb();
+
+  var access = ss.getSheetByName(FN.ACCESS);
+  if (!access) {
+    access = ss.insertSheet(FN.ACCESS);
+    access.appendRow(['playerId','name','role','salt','pinHash','pinOrigin','active','updatedAt']);
+  }
+
+  if (access.getLastRow() <= 1) {
+    var rows = [];
+    var i;
+    for (i = 0; i < PLAYERS.length; i++) {
+      rows.push([PLAYERS[i][0],PLAYERS[i][1],PLAYERS[i][2],'','','',true,new Date()]);
+    }
+    if (rows.length > 0) {
+      access.getRange(2,1,rows.length,8).setValues(rows);
+    }
+  }
+
+  var votes = ss.getSheetByName(FN.VOTES);
+  if (!votes) {
+    votes = ss.insertSheet(FN.VOTES);
+    votes.appendRow(['voterId','targetId','velTuf','tirPre','passRin','driRif','difRea','fisPia','updatedAt']);
+  }
+
+  var defaultSheet = ss.getSheetByName('Foglio1');
+  if (!defaultSheet) defaultSheet = ss.getSheetByName('Sheet1');
+  if (defaultSheet && ss.getSheets().length > 2) {
+    ss.deleteSheet(defaultSheet);
+  }
+
+  Logger.log('Backend creato/usato: ' + ss.getUrl());
+  return ss.getUrl();
+}
+
+function resetBackendLink() {
+  PropertiesService.getScriptProperties().deleteProperty(FN.DB_PROP);
+  return 'Collegamento backend azzerato. Esegui di nuovo setupBackend().';
+}
 
 function doGet(e) {
   ensureStorage_();
@@ -81,7 +140,7 @@ function uiSubmitVote(voterId, pin, targetId, v) {
 }
 
 function ensureStorage_() {
-  var ss = SpreadsheetApp.openById(FN.SHEET_ID);
+  var ss = getDb();
   var access = ss.getSheetByName(FN.ACCESS);
 
   if (!access) {
@@ -134,7 +193,7 @@ function createPin_(playerId, pin) {
   pin = String(pin || '');
   if (!/^\d{6}$/.test(pin)) throw new Error('Il PIN deve avere esattamente 6 cifre.');
 
-  var sh = SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.ACCESS);
+  var sh = getDb().getSheetByName(FN.ACCESS);
   var data = sh.getDataRange().getValues();
   var h = headerMap_(data[0]);
   var r = findPlayerRowIndex_(data, h, playerId);
@@ -162,7 +221,7 @@ function verifyPin_(playerId, pin) {
 }
 
 function accessRow_(playerId) {
-  var sh = SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.ACCESS);
+  var sh = getDb().getSheetByName(FN.ACCESS);
   var data = sh.getDataRange().getValues();
   var h = headerMap_(data[0]);
   var r = findPlayerRowIndex_(data, h, playerId);
@@ -185,7 +244,7 @@ function findPlayerRowIndex_(data, h, playerId) {
 }
 
 function getMyVotes_(voterId) {
-  var sh = SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.VOTES);
+  var sh = getDb().getSheetByName(FN.VOTES);
   var data = sh.getDataRange().getValues();
   if (data.length < 2) return [];
 
@@ -218,7 +277,7 @@ function validateVote_(v) {
 }
 
 function saveVote_(v) {
-  var sh = SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.VOTES);
+  var sh = getDb().getSheetByName(FN.VOTES);
   var data = sh.getDataRange().getValues();
   var h = headerMap_(data[0]);
   var row = -1;
@@ -236,7 +295,7 @@ function saveVote_(v) {
 }
 
 function getMedians_() {
-  var ss = SpreadsheetApp.openById(FN.SHEET_ID);
+  var ss = getDb();
   var access = ss.getSheetByName(FN.ACCESS).getDataRange().getValues();
   var ah = headerMap_(access[0]);
   var roles = {};
@@ -338,9 +397,9 @@ function diagnoseFlannery() {
   ensureStorage_();
   return {
     ok:true,
-    spreadsheetId:FN.SHEET_ID,
-    accessRows:SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.ACCESS).getLastRow(),
-    votesRows:SpreadsheetApp.openById(FN.SHEET_ID).getSheetByName(FN.VOTES).getLastRow(),
+    spreadsheetId:getDb().getId(),
+    accessRows:getDb().getSheetByName(FN.ACCESS).getLastRow(),
+    votesRows:getDb().getSheetByName(FN.VOTES).getLastRow(),
     mimmoHasPin:hasUserPin_('mimmo')
   };
 }
