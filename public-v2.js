@@ -20,6 +20,7 @@
   let db = null;
   let voterSession = null;
   let myVotes = new Map();
+  let dashboardSort = {key:'power', dir:'desc'};
 
   const app = document.getElementById('app');
   const toastEl = document.getElementById('toast');
@@ -134,22 +135,22 @@
     currentView=v;
     document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
 
+    render();
+    window.scrollTo({top:0,behavior:'smooth'});
+
     if(v==='players' && db){
       try{
         await loadPeerRatings();
+        if(currentView==='players') renderPlayers();
       }catch(e){
         console.warn('Aggiornamento rating non disponibile',e);
       }
     }
-
-    render();
-    window.scrollTo({top:0,behavior:'smooth'});
   }
 
   function render(){
     if(currentView==='dashboard')renderDashboard();
     else if(currentView==='matches')renderMatches();
-    else if(currentView==='details')renderDetails();
     else if(currentView==='players')renderPlayers();
     else if(currentView==='method')renderMethod();
     else if(currentView==='votes')renderVotes();
@@ -165,13 +166,37 @@
   function renderDashboard(){
     const stats=deriveStats();
     const played=[...stats.values()].filter(x=>x.played);
-    const rows=[...played].sort((a,b)=>b.power-a.power||b.points-a.points||b.avgPoints-a.avgPoints||b.goals-a.goals);
+    const sorters={
+      name:x=>playerName(x.playerId).toLowerCase(),
+      played:x=>x.played,
+      wins:x=>x.wins,
+      draws:x=>x.draws,
+      losses:x=>x.losses,
+      goals:x=>x.goals,
+      avgGoals:x=>x.avgGoals,
+      points:x=>x.points,
+      avgPoints:x=>x.avgPoints,
+      formIndex:x=>x.formIndex,
+      mvp:x=>x.mvp,
+      critica:x=>x.critica,
+      power:x=>x.power
+    };
+    const dir=dashboardSort.dir==='asc'?1:-1;
+    const getter=sorters[dashboardSort.key]||sorters.power;
+    const rows=[...played].sort((a,b)=>{
+      const av=getter(a),bv=getter(b);
+      if(typeof av==='string') return dir*av.localeCompare(bv,'it');
+      return dir*(Number(av)-Number(bv)) || b.power-a.power;
+    });
     const goals=data.matches.reduce((t,m)=>{const [a,b]=matchScore(m);return t+a+b},0);
     const leader=[...played].sort((a,b)=>b.power-a.power)[0];
     const scorer=[...played].sort((a,b)=>b.goals-a.goals)[0];
+    const arrow=key=>dashboardSort.key===key?(dashboardSort.dir==='asc'?' ▲':' ▼'):'';
+    const th=(key,label,cls='')=>`<th class="sortable ${cls}" data-sort="${key}" title="Ordina per ${esc(label)}">${esc(label)}<span class="sort-arrow">${arrow(key)}</span></th>`;
+
     app.innerHTML=`
       <div class="toolbar">
-        <div><h2 style="margin:0">Classifica · Flannery Power</h2><div class="muted">Classifica unica della stagione.</div></div>
+        <div><h2 style="margin:0">Classifica · Flannery Power</h2><div class="muted">Clicca sulle intestazioni per ordinare la classifica.</div></div>
       </div>
       <div class="kpis">
         <div class="kpi"><div class="label">Partite</div><div class="value">${data.matches.length}</div></div>
@@ -180,7 +205,7 @@
         <div class="kpi"><div class="label">Capocannoniere</div><div class="value">${scorer?esc(playerName(scorer.playerId)):'-'}</div></div>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>#</th><th class="name">Giocatore</th><th>G</th><th>V</th><th>P</th><th>S</th><th>Gol</th><th>Media gol</th><th>Punti</th><th>Media pt</th><th>Forma</th><th>MVP</th><th>Critica</th><th>Power</th></tr></thead>
+        <thead><tr><th>#</th>${th('name','Giocatore','name')}${th('played','G')}${th('wins','V')}${th('draws','P')}${th('losses','S')}${th('goals','Gol')}${th('avgGoals','Media gol')}${th('points','Punti')}${th('avgPoints','Media pt')}${th('formIndex','Forma')}${th('mvp','MVP')}${th('critica','Critica')}${th('power','Power')}</tr></thead>
         <tbody>${rows.map((x,i)=>`<tr>
           <td class="rank">${i+1}</td><td class="name"><strong>${esc(playerName(x.playerId))}</strong></td>
           <td>${x.played}</td><td>${x.wins}</td><td>${x.draws}</td><td>${x.losses}</td><td>${x.goals}</td><td>${fmt1(x.avgGoals)}</td><td>${x.points}</td><td>${fmt1(x.avgPoints)}</td>
@@ -188,6 +213,16 @@
           <td class="power">${fmt1(x.power)}</td>
         </tr>`).join('')}</tbody>
       </table></div>`;
+
+    app.querySelectorAll('th[data-sort]').forEach(el=>el.onclick=()=>{
+      const key=el.dataset.sort;
+      if(dashboardSort.key===key) dashboardSort.dir=dashboardSort.dir==='asc'?'desc':'asc';
+      else{
+        dashboardSort.key=key;
+        dashboardSort.dir=key==='name'?'asc':'desc';
+      }
+      renderDashboard();
+    });
   }
 
   function renderMatches(){
@@ -209,28 +244,24 @@
       }).join('')}</div>`;
   }
 
-  function renderDetails(){
-    const rows=[];
-    [...data.matches].sort((a,b)=>a.date.localeCompare(b.date)).forEach(m=>{
-      const [sa,sb]=matchScore(m),[ra,rb]=resultCodes(sa,sb);
-      [[m.teamA,'A',ra,m.mvpA],[m.teamB,'B',rb,m.mvpB]].forEach(([team,t,res,mvp])=>{
-        team.forEach(e=>rows.push({date:m.date,team:t,player:e.playerId,result:res,goals:e.goals||0,own:e.ownGoals||0,mvp:e.playerId===mvp,crit:e.playerId===m.critica}));
-      });
-    });
-    app.innerHTML=`<div class="toolbar"><div><h2 style="margin:0">Dettagli</h2><div class="muted">Vista generata automaticamente dalle partite.</div></div></div>
-      <div class="table-wrap"><table><thead><tr><th>Data</th><th class="name">Giocatore</th><th>Squadra</th><th>Esito</th><th>Gol</th><th>Autogol</th><th>MVP</th><th>Critica</th></tr></thead>
-      <tbody>${rows.map(r=>`<tr><td>${dateIT(r.date)}</td><td class="name">${esc(playerName(r.player))}</td><td>${r.team}</td><td>${r.result}</td><td>${r.goals}</td><td>${r.own}</td><td>${r.mvp?'★':''}</td><td>${r.crit?'✓':''}</td></tr>`).join('')}</tbody></table></div>`;
-  }
 
   function renderPlayers(){
     const players=[...data.players].filter(p=>p.active).sort((a,b)=>a.name.localeCompare(b.name));
+    const tierClass=(voters,overall)=>{
+      if(!voters || overall===null || overall===undefined) return '';
+      const n=Number(overall);
+      if(n>=90) return 'tier-gold';
+      if(n>=80) return 'tier-silver';
+      return 'tier-bronze';
+    };
     app.innerHTML=`
-      <div class="toolbar"><div><h2 style="margin:0">Giocatori</h2><div class="muted">I valori tecnici mostrati sono esclusivamente le mediane anonime dei voti ricevuti dagli altri giocatori.</div></div></div>
-      <div class="notice">Nessun valore tecnico inserito dagli amministratori viene mostrato in questa versione. L'Overall usa le stesse ponderazioni per ruolo della classifica originale, applicate alle mediane dei voti della community.</div>
+      <div class="toolbar"><div><h2 style="margin:0">Giocatori</h2><div class="muted">Rating tecnico basato sulle mediane anonime dei voti ricevuti.</div></div></div>
+      <div class="notice rating-legend"><strong>Fasce Overall:</strong> <span class="legend-dot gold"></span> Oro 90–100 · <span class="legend-dot silver"></span> Argento 80–89 · <span class="legend-dot bronze"></span> Bronzo fino a 79</div>
       <div class="player-grid">${players.map(p=>{
         const r=peerRatings.get(p.id);
         const voters=Number(r?.voters||0);
-        return `<div class="card player-card">
+        const tier=tierClass(voters,r?.overall);
+        return `<div class="card player-card ${tier}">
           <div class="player-top"><div><div class="player-name">${esc(p.name)}</div><div class="role">${esc(p.role)} · ${esc(ROLE_LABELS[p.role]||'')}</div></div>
           <div class="rating-box"><div class="muted">OVR</div><div class="num">${voters?fmt1(r.overall):'n/d'}</div></div></div>
           <div class="attrs">${ATTRS.map(([k,l])=>`<div class="attr"><span>${l}</span><strong>${voters?fmt1(r[k]):'n/d'}</strong></div>`).join('')}</div>
