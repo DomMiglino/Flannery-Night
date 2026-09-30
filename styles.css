@@ -146,3 +146,18 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   .form-grid,.form-grid.six,.metric-list{grid-template-columns:1fr}
   .scoreboard .n{font-size:28px}
 }
+.sortable{cursor:pointer;user-select:none}
+.sortable:hover{background:#26382e}
+.sort-arrow{display:inline-block;min-width:12px;margin-left:4px;color:var(--gold)}
+.player-card{transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+.player-card.tier-gold{border:2px solid #d4af37;box-shadow:0 14px 38px rgba(212,175,55,.16)}
+.player-card.tier-silver{border:2px solid #b7bcc4;box-shadow:0 14px 38px rgba(183,188,196,.13)}
+.player-card.tier-bronze{border:2px solid #b87845;box-shadow:0 14px 38px rgba(184,120,69,.13)}
+.player-card.tier-gold .rating-box{border-color:#d4af37}
+.player-card.tier-silver .rating-box{border-color:#b7bcc4}
+.player-card.tier-bronze .rating-box{border-color:#b87845}
+.rating-legend{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.legend-dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-left:4px}
+.legend-dot.gold{background:#d4af37}
+.legend-dot.silver{background:#b7bcc4}
+.legend-dot.bronze{background:#b87845}
