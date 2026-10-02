@@ -1,0 +1,123 @@
+// PASSO 3: instradamento delle API.
+// Ogni richiesta che modifica dati (POST, PUT, DELETE, PATCH) deve
+// avere l'header Origin sullo stesso host del sito, altrimenti 403.
+
+import { type Env } from "./env";
+import { fail, MSG } from "./http";
+import { currentAdmin, currentPlayer, type AuthedPlayer } from "./session";
+import { authPlayers, authStatus, createPin, login, logout } from "./routes/routes_auth";
+import { changePin, me, myVotes } from "./routes/routes_me";
+import { putVote } from "./routes/routes_votes";
+import { adminSession, auditTrail, resetPin, unlock } from "./routes/routes_admin";
+import { matches, playerDetail, players, ranking, seasons } from "./routes/routes_data";
+
+const WRITE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
+
+function originAllowed(request: Request, url: URL): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).host === url.host;
+  } catch {
+    return false;
+  }
+}
+
+const NOT_FOUND = () => fail(404, MSG.badRequest);
+const UNAUTHORIZED = () => fail(401, MSG.unauthorized);
+const FORBIDDEN = () => fail(403, MSG.forbidden);
+
+async function requireSession(env: Env, request: Request): Promise<AuthedPlayer | Response> {
+  const auth = await currentPlayer(env, request);
+  return auth ?? UNAUTHORIZED();
+}
+
+async function requireAdmin(env: Env, request: Request): Promise<AuthedPlayer | Response> {
+  const base = await currentPlayer(env, request);
+  if (!base) return UNAUTHORIZED();
+  if (base.player.is_admin !== 1) return FORBIDDEN();
+  const admin = await currentAdmin(env, request);
+  if (!admin) return FORBIDDEN();
+  return admin;
+}
+
+function isResponse(value: AuthedPlayer | Response): value is Response {
+  return value instanceof Response;
+}
+
+export async function handleApi(request: Request, env: Env, url: URL): Promise<Response> {
+  if (WRITE_METHODS.has(request.method) && !originAllowed(request, url)) {
+    return FORBIDDEN();
+  }
+
+  const parts = url.pathname.split("/").filter(Boolean).slice(1);
+  const head = parts[0];
+  const second = parts[1];
+  const method = request.method;
+
+  if (head === "auth") {
+    if (method === "GET" && second === "players") return authPlayers(env);
+    if (method === "GET" && second === "status") return authStatus(env, url.searchParams.get("playerId") ?? "");
+    if (method === "POST" && second === "create-pin") return createPin(env, request);
+    if (method === "POST" && second === "login") return login(env, request);
+    if (method === "POST" && second === "logout") return logout(env);
+    return NOT_FOUND();
+  }
+
+  if (head === "me") {
+    if (method === "GET" && second === undefined) {
+      const auth = await requireSession(env, request);
+      return isResponse(auth) ? auth : me(auth);
+    }
+    if (method === "GET" && second === "votes") {
+      const auth = await requireSession(env, request);
+      return isResponse(auth) ? auth : myVotes(env, auth);
+    }
+    if (method === "POST" && second === "pin") {
+      const auth = await requireSession(env, request);
+      return isResponse(auth) ? auth : changePin(env, auth, request);
+    }
+    return NOT_FOUND();
+  }
+
+  if (head === "votes" && second !== undefined && parts.length === 2) {
+    if (method === "PUT") {
+      const auth = await requireSession(env, request);
+      if (isResponse(auth)) return auth;
+      return putVote(env, auth, decodeURIComponent(second), request);
+    }
+    return NOT_FOUND();
+  }
+
+  if (head === "admin") {
+    if (method === "POST" && second === "session") {
+      const auth = await requireSession(env, request);
+      if (isResponse(auth)) return auth;
+      if (auth.player.is_admin !== 1) return FORBIDDEN();
+      return adminSession(env, auth, request);
+    }
+    if (method === "POST" && second === "players" && parts[3] === "reset-pin") {
+      const auth = await requireAdmin(env, request);
+      return isResponse(auth) ? auth : resetPin(env, auth, decodeURIComponent(parts[2] ?? ""));
+    }
+    if (method === "POST" && second === "players" && parts[3] === "unlock") {
+      const auth = await requireAdmin(env, request);
+      return isResponse(auth) ? auth : unlock(env, auth, decodeURIComponent(parts[2] ?? ""));
+    }
+    if (method === "GET" && second === "audit") {
+      const auth = await requireAdmin(env, request);
+      return isResponse(auth) ? auth : auditTrail(env);
+    }
+    return NOT_FOUND();
+  }
+
+  if (head === "seasons" && method === "GET") return seasons(env);
+  if (head === "ranking" && method === "GET") return ranking(env, url.searchParams.get("season"));
+  if (head === "players" && method === "GET" && second === undefined) return players(env);
+  if (head === "players" && method === "GET" && second !== undefined) {
+    return playerDetail(env, decodeURIComponent(second), url.searchParams.get("season"));
+  }
+  if (head === "matches" && method === "GET") return matches(env, url.searchParams.get("season"));
+
+  return NOT_FOUND();
+}

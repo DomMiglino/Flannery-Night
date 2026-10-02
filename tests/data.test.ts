@@ -1,0 +1,158 @@
+// PASSO 3: rotte pubbliche di lettura. Controllo anche che fuori dal
+// server non escano mai salt, hash o voti singoli.
+
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { startServer, type TestServer } from "./helpers/server";
+
+let s: TestServer;
+
+beforeAll(async () => {
+  s = await startServer();
+}, 120_000);
+
+afterAll(async () => {
+  await s?.dispose();
+});
+
+beforeEach(async () => {
+  await s.reset();
+});
+
+const PUBLIC_PATHS = ["/api/seasons", "/api/ranking", "/api/players", "/api/players/antonio", "/api/matches"];
+
+describe("stagioni", () => {
+  it("elenca le stagioni e segnala quella attiva", async () => {
+    const res = await s.call("/api/seasons");
+    expect(res.status).toBe(200);
+    expect(res.body.seasons).toEqual([
+      { id: 1, name: "2026/27", isActive: true },
+      { id: 2, name: "2099/00", isActive: false },
+    ]);
+    expect(res.body.activeId).toBe(1);
+  });
+});
+
+describe("classifica", () => {
+  it("usa la stagione attiva e segue l'ordine di calcolo", async () => {
+    const res = await s.call("/api/ranking");
+    expect(res.status).toBe(200);
+    expect(res.body.season.id).toBe(1);
+    const rows = res.body.rows as Array<{ id: string; powerScore: number; played: number; guidinha: number }>;
+    expect(rows.length).toBeGreaterThan(5);
+    // Chi non ha mai giocato c'è comunque in classifica.
+    expect(rows.map((r) => r.id)).toContain("fake-esterno");
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i - 1].powerScore).toBeGreaterThanOrEqual(rows[i].powerScore);
+    }
+    const antonio = rows.find((r) => r.id === "antonio")!;
+    expect(antonio.played).toBe(2);
+    expect(antonio.guidinha).toBe(1);
+    expect(Object.keys(antonio).sort()).toEqual(
+      [
+        "V",
+        "P",
+        "S",
+        "flag",
+        "formaArrow",
+        "formaScore",
+        "goals",
+        "guidinha",
+        "id",
+        "mvp",
+        "name",
+        "ownGoals",
+        "played",
+        "powerScore",
+        "rendimento",
+        "role",
+      ].sort(),
+    );
+  });
+
+  it("season= sceglie la stagione", async () => {
+    const res = await s.call("/api/ranking?season=2");
+    // Stagione senza partite: tutti a zero, nessuna statistica inventata.
+    expect(res.body.rows.every((r: { played: number; points: number }) => r.played === 0)).toBe(true);
+    const byName = await s.call("/api/ranking?season=2026/27");
+    expect(byName.body.rows.length).toBeGreaterThan(5);
+    expect(byName.body.rows.some((r: { played: number }) => r.played > 0)).toBe(true);
+  });
+});
+
+describe("giocatori", () => {
+  it("elenco con mediane, numero di voti e overall", async () => {
+    const res = await s.call("/api/players");
+    expect(res.status).toBe(200);
+    const rows = res.body.players as Array<{ id: string; votes: number; overall: number | null; velTuf: number | null }>;
+    const uno = rows.find((r) => r.id === "fake-uno")!;
+    expect(uno.votes).toBe(1);
+    expect(uno.velTuf).toBe(11);
+    const esterno = rows.find((r) => r.id === "fake-esterno")!;
+    expect(esterno.votes).toBe(1);
+    const withOverall = rows.filter((r) => r.overall !== null);
+    for (let i = 1; i < withOverall.length; i++) {
+      expect(withOverall[i - 1].overall!).toBeGreaterThanOrEqual(withOverall[i].overall!);
+    }
+  });
+
+  it("scheda di un giocatore: statistiche di stagione e ultime partite", async () => {
+    const res = await s.call("/api/players/antonio");
+    expect(res.status).toBe(200);
+    expect(res.body.season.id).toBe(1);
+    expect(res.body.stats).toMatchObject({ played: 2, goals: 2, mvp: 1, guidinha: 1 });
+    expect(res.body.last5).toHaveLength(2);
+    expect(res.body.last5[0].date).toBe("2026-09-10");
+    expect(res.body.last5[1].outcome).toBe("V");
+    expect(res.body.last5[1].label).toBe("V*");
+    expect((await s.call("/api/players/fake-inesistente")).status).toBe(404);
+  });
+});
+
+describe("partite", () => {
+  it("pubblicate, dalla piu' recente, con squadre e Guidinha", async () => {
+    const res = await s.call("/api/matches");
+    expect(res.status).toBe(200);
+    const matches = res.body.matches as Array<Record<string, any>>;
+    expect(matches).toHaveLength(2);
+    expect(matches[0].date).toBe("2026-09-10");
+    expect(matches[0].guidinha.text).toBe("");
+    const first = matches[1];
+    expect(first.guidinha.playerId).toBe("antonio");
+    expect(first.guidinha.playerName).toBe("Fake Antonio");
+    expect(first.teams[0].players).toHaveLength(5);
+    expect(first.teams[0].players[0]).toMatchObject({ id: "antonio", goals: 2, mvp: true });
+    expect(first.result).toBe("A 4 - B 1");
+    // Solo published: nessuna bozza.
+    const other = await s.call("/api/matches?season=2");
+    expect(other.body.matches).toEqual([]);
+  });
+
+  it("il risultato conta gli autogol avversari", async () => {
+    const res = await s.call("/api/matches");
+    const first = res.body.matches[1];
+    // Squadra A: 3 gol + l'autogol di fake-due (squadra B) = 4. Squadra B: 1 gol = 1.
+    expect(first.teams.map((t: { score: number }) => t.score)).toEqual([4, 1]);
+    expect(first.teams.map((t: { outcome: string }) => t.outcome)).toEqual(["V", "S"]);
+  });
+});
+
+describe("nessun segreto nelle risposte pubbliche", () => {
+  it("niente salt, hash, PIN o voti singoli", async () => {
+    const creds = await s.db
+      .prepare("SELECT salt, pin_hash FROM credentials WHERE salt <> '' OR pin_hash <> ''")
+      .all<{ salt: string; pin_hash: string }>();
+    const secrets = creds.results.flatMap((c) => [c.salt, c.pin_hash]).filter(Boolean);
+    // Anche i valori dei fixture, che non sono segreti veri ma non devono uscire.
+    secrets.push("fake-salt-a", "fake-salt-u", "fake-salt-v1", "fake-hash-a", "fake-hash-u");
+
+    for (const path of PUBLIC_PATHS) {
+      const res = await s.call(path);
+      expect(res.status).toBe(200);
+      for (const value of secrets) {
+        expect(res.text).not.toContain(value);
+      }
+      expect(res.text).not.toMatch(/pin_hash|pinHash|"salt"/);
+      expect(res.text).not.toContain("voterId");
+    }
+  });
+});

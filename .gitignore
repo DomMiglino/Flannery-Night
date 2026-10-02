@@ -10,6 +10,7 @@ migrazione.sql
 # Dipendenze / build
 node_modules/
 dist/
+.tmp-tests/
 .wrangler/
 .wrangler
 # OS / editor

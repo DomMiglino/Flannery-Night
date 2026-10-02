@@ -1,19 +1,23 @@
-export interface Env {
-  DB: D1Database;
-}
+// PASSO 3: Worker. Le API sono in src/router.ts; il resto arriva
+// dagli static assets di public/ (interfaccia nel passo 4).
+// Il percorso dell'area di amministrazione e' ADMIN_PATH, deciso al passo 5.
 
-// PASSO 1: Worker segnaposto. Le API vere arrivano nei passi successivi.
-// Gli static assets in public/ sono serviti da Cloudflare; qui rispondiamo
-// solo alle chiamate /api/* con un JSON di stato.
+import { adminPath, type Env } from "./env";
+import { fail, MSG } from "./http";
+import { handleApi } from "./router";
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
-      return Response.json({ ok: true, service: "Flannery Night v2", step: 1 });
+      return handleApi(request, env, url);
     }
-    // Lascia servire gli static assets; se non trovati, 404 JSON.
-    const asset = await (env as unknown as { ASSETS?: { fetch(r: Request): Promise<Response> } }).ASSETS?.fetch(request);
-    if (asset) return asset;
+    // Percorso riservato: la pagina arriva nel passo 5.
+    if (url.pathname === adminPath(env)) {
+      return fail(404, MSG.badRequest);
+    }
+    const assets = env.ASSETS as { fetch(r: Request): Promise<Response> } | undefined;
+    if (assets) return assets.fetch(request);
     return new Response("Not found", { status: 404 });
   },
 };
