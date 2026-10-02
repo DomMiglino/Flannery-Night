@@ -1,0 +1,6 @@
+[
+  { "playerId": "antonio", "name": "Fake Antonio", "role": "CC", "salt": "fake-salt-a", "pinHash": "fake-hash-a", "pinOrigin": "user", "active": true, "updatedAt": "2026-09-01T10:00:00.000Z" },
+  { "playerId": "antonioportiere", "name": "Fake Altro Portiere", "role": "P", "salt": null, "pinHash": null, "pinOrigin": null, "active": true, "updatedAt": "2026-09-01T10:00:00.000Z" },
+  { "playerId": "fake-uno", "name": "Fake Uno", "role": "CL", "salt": "fake-salt-u", "pinHash": "fake-hash-u", "pinOrigin": "user", "active": true, "updatedAt": "2026-09-01T10:00:00.000Z" },
+  { "playerId": "fake-due", "name": "Fake Due", "role": "DC", "salt": "", "pinHash": "", "pinOrigin": "", "active": true, "updatedAt": "2026-09-01T10:00:00.000Z" }
+]

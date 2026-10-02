@@ -1,0 +1,13 @@
+name = "flannery-night-v2"
+main = "src/worker.ts"
+compatibility_date = "2026-05-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flannery-night-v2"
+database_id = "102b9aa6-301b-4482-a9a7-e0165c99563d"
+migrations_dir = "migrations"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"

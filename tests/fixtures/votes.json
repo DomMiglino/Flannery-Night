@@ -1,0 +1,6 @@
+[
+  { "voterId": "antonio", "targetId": "fake-uno", "velTuf": 10, "tirPre": 20, "passRin": 30, "driRif": 40, "difRea": 50, "fisPia": 60, "updatedAt": "2026-09-01T10:00:00.000Z" },
+  { "voterId": "antonio", "targetId": "fake-uno", "velTuf": 11, "tirPre": 21, "passRin": 31, "driRif": 41, "difRea": 51, "fisPia": 61, "updatedAt": "2026-09-02T10:00:00.000Z" },
+  { "voterId": "fake-uno", "targetId": "antonio", "velTuf": 50, "tirPre": 50, "passRin": 50, "driRif": 50, "difRea": 50, "fisPia": 50, "updatedAt": "2026-09-01T10:00:00.000Z" },
+  { "voterId": "fake-due", "targetId": "fake-tre", "velTuf": 1, "tirPre": 1, "passRin": 1, "driRif": 1, "difRea": 1, "fisPia": 1, "updatedAt": "2026-09-01T10:00:00.000Z" }
+]

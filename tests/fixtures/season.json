@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "season": "2026/27",
+  "_syncId": "fake-sync-da-scartare",
+  "players": [
+    { "id": "antonio", "name": "Fake Antonio", "nationUrl": "https://example.invalid/flag-a", "role": "CC", "legacy": { "x": 1 }, "active": true },
+    { "id": "antonioportiere", "name": "Fake Altro Portiere", "nationUrl": "https://example.invalid/flag-b", "role": "P", "legacy": null, "active": true },
+    { "id": "fake-uno", "name": "Fake Uno", "nationUrl": "https://example.invalid/flag-c", "role": "CL", "legacy": {}, "active": true },
+    { "id": "fake-due", "name": "Fake Due", "nationUrl": "", "role": "DC", "legacy": {}, "active": true },
+    { "id": "fake-tre", "name": "Fake Tre", "nationUrl": "https://example.invalid/flag-e", "role": "PC", "legacy": {}, "active": true },
+    { "id": "fake-quattro", "name": "Fake Quattro", "nationUrl": "https://example.invalid/flag-f", "role": "DL", "legacy": {}, "active": true },
+    { "id": "fake-cinque", "name": "Fake Cinque", "nationUrl": "https://example.invalid/flag-g", "role": "CC", "legacy": {}, "active": true },
+    { "id": "fake-sei", "name": "Fake Sei", "nationUrl": "https://example.invalid/flag-h", "role": "CL", "legacy": {}, "active": true },
+    { "id": "fake-sette", "name": "Fake Sette", "nationUrl": "https://example.invalid/flag-i", "role": "PC", "legacy": {}, "active": true },
+    { "id": "fake-otto", "name": "Fake Otto", "nationUrl": "https://example.invalid/flag-j", "role": "DL", "legacy": {}, "active": true }
+  ],
+  "matches": [
+    {
+      "id": "fake-m1",
+      "date": "2026-09-04",
+      "teamA": [
+        { "playerId": "antonio", "goals": 2, "ownGoals": 0, "assists": 9, "shotsOnTarget": 9 },
+        { "playerId": "fake-uno", "goals": 1, "ownGoals": 0 },
+        { "playerId": "fake-tre", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-quattro", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-cinque", "goals": 0, "ownGoals": 0 }
+      ],
+      "teamB": [
+        { "playerId": "antonioportiere", "goals": 1, "ownGoals": 0 },
+        { "playerId": "fake-due", "goals": 0, "ownGoals": 1 },
+        { "playerId": "fake-sei", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-sette", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-otto", "goals": 0, "ownGoals": 0 }
+      ],
+      "mvpA": "antonio",
+      "mvpB": "fake-due",
+      "critica": "antonio",
+      "notes": "nota da scartare",
+      "advancedTracked": true
+    },
+    {
+      "id": "fake-m2",
+      "date": "2026-09-10",
+      "teamA": [
+        { "playerId": "antonio", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-uno", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-tre", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-quattro", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-cinque", "goals": 0, "ownGoals": 0 }
+      ],
+      "teamB": [
+        { "playerId": "antonioportiere", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-due", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-sei", "goals": 1, "ownGoals": 0 },
+        { "playerId": "fake-sette", "goals": 0, "ownGoals": 0 },
+        { "playerId": "fake-otto", "goals": 0, "ownGoals": 0 }
+      ],
+      "mvpA": "fake-uno",
+      "mvpB": "fake-sei",
+      "critica": "",
+      "notes": "",
+      "advancedTracked": false
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Segreti / dati reali: mai nella repo
+backup/
+old_db/
+*.log
+migrazione.sql
+**/migrazione.sql
+**/*.generated.sql
+.dev.vars
+.dev.vars.*
+# Dipendenze / build
+node_modules/
+dist/
+.wrangler/
+.wrangler
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
