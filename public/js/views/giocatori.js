@@ -9,6 +9,7 @@ import { votiPerTarget } from "../ratings.js";
 import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../ordina.js";
 import { withSeason } from "../routes.js";
 import { bandiera, errore, scheletro, titolo } from "../ui.js";
+import { troncaNome } from "./classifica.js";
 
 /** Mediana come arriva dall'API (può avere un decimale); "—" senza voti. */
 function testoMediana(valore) {
@@ -19,6 +20,15 @@ function testoMediana(valore) {
 /** Overall per eccesso già calcolato dal server; "—" senza voti. */
 function testoOverallUp(valore) {
   return valore === null || valore === undefined ? "—" : String(valore);
+}
+
+/**
+ * Cella doppia "mediana / mio voto": a sinistra il valore ricevuto,
+ * a destra quello assegnato, trattini se non assegnato.
+ */
+export function testoDoppio(sinistra, mio) {
+  const destro = mio === null || mio === undefined ? "—" : String(mio);
+  return `${sinistra} / ${destro}`;
 }
 
 /** Una cella numerica: il trattino se il valore manca, tono attenuato se zero. */
@@ -44,7 +54,6 @@ const COLONNE = [
   { id: "dri", etichetta: "DRI/RIF", chiave: "driRif", iniziale: "desc" },
   { id: "dif", etichetta: "DIF/REA", chiave: "difRea", iniziale: "desc" },
   { id: "fis", etichetta: "FIS/PIA", chiave: "fisPia", iniziale: "desc" },
-  { id: "mio", etichetta: "Mio", chiave: "mioEsatto", iniziale: "desc", soloCollegato: true },
 ];
 
 function indiceRuoloDi(giocatore) {
@@ -106,13 +115,11 @@ export async function renderGiocatori(root, ctx) {
   }
 
   const mioIndice = votiPerTarget(votiMiei);
-  // Il "mio overall" per riga: quello esatto per ordinare, quello per
-  // eccesso per mostrare. Niente voti, niente valori.
+  // Il "mio overall" per riga serve a mostrare il voto assegnato
+  // accanto alla mediana. Niente voti, niente valori.
   const righe = (giocatori || []).map((g) => {
     const mio = mioIndice.get(g.id);
-    const esatto = mio && typeof mio.myOverall === "number" ? mio.myOverall : null;
-    const eccesso = mio && typeof mio.myOverallUp === "number" ? mio.myOverallUp : null;
-    return { ...g, mioEsatto: esatto, mioUp: eccesso };
+    return { ...g, mioVoto: mio || null };
   });
 
   const filtro = { role: "", soloDaVotare: false };
@@ -153,11 +160,6 @@ export async function renderGiocatori(root, ctx) {
     );
   }
 
-  function colonneVisibili() {
-    const collegato = ctx.collegato();
-    return COLONNE.filter((c) => !c.soloCollegato || collegato);
-  }
-
   function disegna() {
     const collegato = ctx.collegato();
     const votati = new Set(mioIndice.keys());
@@ -168,16 +170,10 @@ export async function renderGiocatori(root, ctx) {
       io,
     });
 
-    let stato = memoria.ordinamento;
-    // Se la colonna attiva non c'è più (es. "Mio" senza accesso),
-    // si torna all'ordinamento iniziale.
-    if (!colonneVisibili().some((c) => c.id === stato.id)) {
-      stato = { ...INIZIALE };
-      memoria.ordinamento = stato;
-    }
+    const stato = memoria.ordinamento;
     const elenco = ordinaRighe(filtrate, { chiave: stato.chiave, direzione: stato.direzione, spareggi: SPAREGGI_UFFICIALI });
 
-    contatore.textContent = `${elenco.length} di ${righe.length} giocatori`;
+    contatore.textContent = "A sinistra il voto mediana, a destra il voto che hai assegnato (— se non lo hai assegnato).";
     clear(contenitore);
 
     if (elenco.length === 0) {
@@ -185,52 +181,55 @@ export async function renderGiocatori(root, ctx) {
       return;
     }
 
-    const visibili = colonneVisibili();
-    const testa = el("tr", {
-      children: visibili.map((c) => intestazione(c, stato, (colonna) => {
-        memoria.ordinamento = prossimoStato(stato, colonna);
-        disegna();
-      })),
-    });
     const corpo = el("tbody");
     for (const giocatore of elenco) {
       const bandierina = bandiera(giocatore.flag);
+      const indirizzo = withSeason(`/giocatori/${encodeURIComponent(giocatore.id)}`, ctx.stagione());
       const nome = el("a", {
-        className: "tabella-nome",
-        attrs: { href: withSeason(`/giocatori/${encodeURIComponent(giocatore.id)}`, ctx.stagione()) },
-        text: giocatore.name,
+        className: "tabella-nome tabella-nome-corto",
+        attrs: { href: indirizzo, title: giocatore.name, "aria-label": giocatore.name },
+        text: troncaNome(giocatore.name),
       });
       linkInterno(nome, ctx.navigate);
+      const mio = giocatore.mioVoto || {};
+      const mioDi = (chiave) => (mio[chiave] === null || mio[chiave] === undefined ? null : mio[chiave]);
+      const overallUp = testoOverallUp(giocatore.overallUp);
+      const mioOverallUp = giocatore.mioVoto && typeof giocatore.mioVoto.myOverallUp === "number" ? giocatore.mioVoto.myOverallUp : null;
+      // La propria riga non ha il doppio valore: non ci si può votare da soli.
+      const propria = io !== null && giocatore.id === io;
+      const doppio = (sinistra, destro) => (propria ? sinistra : testoDoppio(sinistra, destro));
       const celle = [
         el("th", { attrs: { scope: "row" }, children: [bandierina, nome] }),
         el("td", { children: [el("span", { className: "pill", text: giocatore.role })] }),
         el("td", {
-          className: "tabella-numero",
-          children: [el("span", { className: "overall-pill", text: testoOverallUp(giocatore.overallUp) })],
-          attrs: { "aria-label": `Overall ricevuto ${testoOverallUp(giocatore.overallUp)}` },
+          className: "tabella-numero tabella-doppio",
+          children: [el("span", { className: "overall-pill", text: doppio(overallUp, mioOverallUp) })],
+          attrs: { "aria-label": propria ? `Overall ricevuto ${overallUp}` : `Overall ricevuto ${overallUp}, il mio ${mioOverallUp === null ? "non assegnato" : mioOverallUp}` },
         }),
-        el("td", { className: "tabella-numero", text: testoMediana(giocatore.velTuf) }),
-        el("td", { className: "tabella-numero", text: testoMediana(giocatore.tirPre) }),
-        el("td", { className: "tabella-numero", text: testoMediana(giocatore.passRin) }),
-        el("td", { className: "tabella-numero", text: testoMediana(giocatore.driRif) }),
-        el("td", { className: "tabella-numero", text: testoMediana(giocatore.difRea) }),
-        el("td", { className: "tabella-numero", text: testoMediana(giocatore.fisPia) }),
+        el("td", { className: "tabella-numero tabella-doppio", text: doppio(testoMediana(giocatore.velTuf), mioDi("velTuf")) }),
+        el("td", { className: "tabella-numero tabella-doppio", text: doppio(testoMediana(giocatore.tirPre), mioDi("tirPre")) }),
+        el("td", { className: "tabella-numero tabella-doppio", text: doppio(testoMediana(giocatore.passRin), mioDi("passRin")) }),
+        el("td", { className: "tabella-numero tabella-doppio", text: doppio(testoMediana(giocatore.driRif), mioDi("driRif")) }),
+        el("td", { className: "tabella-numero tabella-doppio", text: doppio(testoMediana(giocatore.difRea), mioDi("difRea")) }),
+        el("td", { className: "tabella-numero tabella-doppio", text: doppio(testoMediana(giocatore.fisPia), mioDi("fisPia")) }),
       ];
-      if (collegato) {
-        const mioUp = giocatore.mioUp;
-        celle.push(
-          el("td", {
-            className: "tabella-numero tabella-mio",
-            text: mioUp === null || mioUp === undefined ? "—" : String(mioUp),
-            attrs: { "aria-label": mioUp === null || mioUp === undefined ? "Non hai ancora votato questo giocatore" : `Il mio overall è ${mioUp}` },
-          }),
-        );
-      }
-      corpo.append(el("tr", { children: celle }));
+      corpo.append(
+        el("tr", {
+          className: "riga-link",
+          on: {
+            click: (evento) => {
+              const bersaglio = evento.target;
+              if (bersaglio && bersaglio.closest && bersaglio.closest("a,button")) return;
+              ctx.navigate(indirizzo);
+            },
+          },
+          children: celle,
+        }),
+      );
     }
 
     // La colonna attiva ha lo sfondo evidenziato.
-    const indiceAttiva = visibili.findIndex((c) => c.id === stato.id);
+    const indiceAttiva = COLONNE.findIndex((c) => c.id === stato.id);
     if (indiceAttiva >= 0) {
       for (const tr of corpo.children) {
         const cella = tr.children[indiceAttiva + 1];
@@ -245,12 +244,12 @@ export async function renderGiocatori(root, ctx) {
         children: [
           el("table", {
             className: "tabella",
+            attrs: { "aria-label": "Giocatori: ruolo, overall per eccesso e mediane dei voti ricevuti." },
             children: [
-              el("caption", { className: "tabella-descrizione", text: "Giocatori: ruolo, overall per eccesso e mediane dei voti ricevuti." }),
               el("thead", {
                 children: [
                   el("tr", {
-                    children: visibili.map((c) => intestazione(c, stato, (colonna) => {
+                    children: COLONNE.map((c) => intestazione(c, stato, (colonna) => {
                       memoria.ordinamento = prossimoStato(stato, colonna);
                       disegna();
                     })),

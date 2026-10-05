@@ -24,7 +24,8 @@ import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../pub
 import { etichetteGol, formatoPartita, guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
-import { fasciaOverall, testoRendimento } from "../public/js/views/classifica.js";
+import { fasciaOverall, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
+import { testoDoppio } from "../public/js/views/giocatori.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
 import { azioneAccount, impostaCollegato, isCollegato, prendiReturnTo, ricordaReturnTo, utenteCollegato, vociMenu } from "../public/js/state.js";
 import { readFileSync } from "node:fs";
@@ -537,6 +538,22 @@ describe("tabella della classifica", () => {
     expect(fasciaOverall(0)).toBe("bronzo");
     expect(fasciaOverall(null)).toBe(null);
     expect(fasciaOverall(undefined)).toBe(null);
+  });
+
+  it("nomi oltre 9 lettere troncati con due puntini", () => {
+    expect(troncaNome("AntonioPortiere")).toBe("AntonioPo..");
+    expect(troncaNome("Bartolomeo")).toBe("Bartolome..");
+    expect(troncaNome("Alessandr")).toBe("Alessandr");
+    expect(troncaNome("Ann")).toBe("Ann");
+    expect(troncaNome("")).toBe("");
+  });
+
+  it("cella doppia mediana/mio: trattini se non assegnato", () => {
+    expect(testoDoppio("80", 84)).toBe("80 / 84");
+    expect(testoDoppio("79,5", 80)).toBe("79,5 / 80");
+    expect(testoDoppio("—", null)).toBe("— / —");
+    expect(testoDoppio("86", null)).toBe("86 / —");
+    expect(testoDoppio("86", undefined)).toBe("86 / —");
   });
 
   it("il rendimento diventa una riga di testo con la stella", () => {

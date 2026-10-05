@@ -327,13 +327,6 @@ button {
   border-collapse: collapse;
 }
 
-.tabella-descrizione {
-  padding: 4px 10px 8px;
-  color: var(--testo-2);
-  font-size: 0.85rem;
-  text-align: left;
-}
-
 /* Intestazione con sfondo distinto e testo semibold maiuscoletto. */
 .tabella thead th {
   padding: 4px;
@@ -432,6 +425,14 @@ button {
   font-weight: 600;
 }
 
+/* Nome in classifica: senza sottolineatura, troncato in JS a 9 lettere
+   più due puntini, e un po' di spazio dopo bandiera/posizione. */
+.tabella-nome-corto {
+  margin-left: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 .tabella-numero {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -501,6 +502,11 @@ button {
 
 .tabella-mio {
   color: var(--testo-2);
+}
+
+/* Celle doppie "mediana / mio voto": numeri vicini, mai a capo in mezzo. */
+.tabella-doppio {
+  white-space: nowrap;
 }
 
 /* Nomi nell'accesso: solo il nome, intero e a capo, mai troncato. */

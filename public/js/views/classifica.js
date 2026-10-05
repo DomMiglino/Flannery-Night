@@ -50,6 +50,15 @@ function zero(value) {
 }
 
 /**
+ * Nome troncato a 9 lettere con due puntini: "AntonioPortiere"
+ * diventa "AntonioPo..". Fino a 9 lettere resta intero.
+ */
+export function troncaNome(nome, limite = 9) {
+  const testo = String(nome ?? "");
+  return testo.length > limite ? `${testo.slice(0, limite)}..` : testo;
+}
+
+/**
  * Fascia dell'overall per eccesso: oro da 81 in su, argento da 70 a 80,
  * bronzo sotto il 70. Niente fascia senza voti.
  */
@@ -148,12 +157,13 @@ export async function renderClassifica(root, ctx) {
       const fascia = fasciaOverall(riga.overallUp);
       const indirizzo = withSeason(`/giocatori/${encodeURIComponent(riga.id)}`, ctx.stagione());
       const nome = el("a", {
-        className: fascia ? `tabella-nome fascia-${fascia}` : "tabella-nome",
+        className: fascia ? `tabella-nome tabella-nome-corto fascia-${fascia}` : "tabella-nome tabella-nome-corto",
         attrs: {
           href: indirizzo,
+          title: riga.name,
           "aria-label": fascia ? `${riga.name}, fascia ${fascia}, overall ${riga.overallUp}` : riga.name,
         },
-        text: riga.name,
+        text: troncaNome(riga.name),
       });
       linkInterno(nome, ctx.navigate);
       const posizione = posizioneDi.get(riga.id) ?? 0;
