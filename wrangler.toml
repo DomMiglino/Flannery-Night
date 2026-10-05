@@ -9,8 +9,8 @@ database_id = "102b9aa6-301b-4482-a9a7-e0165c99563d"
 migrations_dir = "migrations"
 
 [vars]
-# Percorso della pagina di amministrazione (deciso al passo 5).
-ADMIN_PATH = "/gestione"
+# Percorso della pagina di gestione (blocco 5a).
+ADMIN_PATH = "/copilota"
 
 [assets]
 directory = "./public"

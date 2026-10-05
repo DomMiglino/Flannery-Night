@@ -65,6 +65,16 @@ export const api = {
   putVote: (targetId, valori) => request(`/api/votes/${encodeURIComponent(targetId)}`, { method: "PUT", body: valori }),
   changePin: (current, next, nextConfirm) =>
     request("/api/me/pin", { method: "POST", body: { current, new: next, newConfirm: nextConfirm } }),
+
+  // pagina di gestione (percorso da /api/config)
+  config: () => request("/api/config"),
+  confermaPin: (pin) => request("/api/admin/session", { method: "POST", body: { pin } }),
+  giocatoriEditor: () => request("/api/admin/players"),
+  partiteGestione: (season) => request(`/api/admin/matches${season ? `?season=${encodeURIComponent(season)}` : ""}`),
+  partitaGestione: (id) => request(`/api/admin/matches/${encodeURIComponent(id)}`),
+  creaPartita: (partita) => request("/api/admin/matches", { method: "POST", body: partita }),
+  salvaPartita: (id, partita) => request(`/api/admin/matches/${encodeURIComponent(id)}`, { method: "PUT", body: partita }),
+  eliminaPartita: (id) => request(`/api/admin/matches/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
 
 /**

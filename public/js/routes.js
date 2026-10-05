@@ -10,7 +10,11 @@ export const VISTA = {
   home: "home",
   accesso: "accesso",
   cambia: "cambia",
+  copilota: "copilota",
 };
+
+/** Percorso della pagina di gestione (stesso valore di ADMIN_PATH). */
+export const PERCORSO_GESTIONE = "/copilota";
 
 /** Percorso iniziale: chi non è entrato va in classifica, chi è entrato in home. */
 export function homePath(authed) {
@@ -46,11 +50,18 @@ export function withSeason(pathname, season) {
  * Traduce un indirizzo in una vista.
  * Restituisce {redirect} quando l'indirizzo non va bene (per esempio /home
  * senza accesso), altrimenti {name, playerId, season}.
+ * La pagina di gestione non sta nella barra: senza accesso rimanda
+ * all'accesso (che poi torna qui), con accesso la vista decide in base
+ * ai permessi (riconferma del PIN o messaggio breve).
  */
-export function resolveRoute(pathname, { authed = false, search = "" } = {}) {
+export function resolveRoute(pathname, { authed = false, search = "", gestione = PERCORSO_GESTIONE } = {}) {
   const path = normalizePath(pathname);
   const season = seasonFromSearch(search);
   const resta = { authed, season };
+
+  if (path === normalizePath(gestione)) {
+    return authed ? { name: VISTA.copilota, season } : { redirect: "/accesso", season };
+  }
 
   if (path === "/") return { redirect: homePath(authed), season };
   // /home senza accesso va alla pagina di accesso, mai in classifica:
@@ -93,8 +104,9 @@ export function needsSeason(name) {
   return name === VISTA.classifica || name === VISTA.partite || name === VISTA.scheda;
 }
 
-/** La voce della barra da segnare come corrente. */
+/** La pagina di gestione non ha voce nella barra: niente evidenziato. */
 export function activeNav(routeName, playerId) {
   if (routeName === VISTA.scheda) return VISTA.giocatori;
+  if (routeName === VISTA.copilota) return null;
   return routeName;
 }

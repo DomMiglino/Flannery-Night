@@ -2,13 +2,21 @@
 // Ogni richiesta che modifica dati (POST, PUT, DELETE, PATCH) deve
 // avere l'header Origin sullo stesso host del sito, altrimenti 403.
 
-import { type Env } from "./env";
-import { fail, MSG } from "./http";
+import { type Env, adminPath } from "./env";
+import { fail, json, MSG } from "./http";
 import { currentAdmin, currentPlayer, type AuthedPlayer } from "./session";
 import { authPlayers, authStatus, createPin, login, logout } from "./routes/routes_auth";
 import { changePin, me, myVotes } from "./routes/routes_me";
 import { putVote } from "./routes/routes_votes";
 import { adminSession, auditTrail, resetPin, unlock } from "./routes/routes_admin";
+import {
+  creaPartita,
+  dettaglioPartita,
+  elencoPartite,
+  eliminaPartita,
+  giocatoriPerEditor,
+  modificaPartita,
+} from "./routes/routes_matches_admin";
 import { matches, playerDetail, players, ranking, seasons } from "./routes/routes_data";
 
 const WRITE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
@@ -108,7 +116,31 @@ export async function handleApi(request: Request, env: Env, url: URL): Promise<R
       const auth = await requireAdmin(env, request);
       return isResponse(auth) ? auth : auditTrail(env);
     }
+    if (method === "GET" && second === "players" && parts.length === 2) {
+      const auth = await requireAdmin(env, request);
+      return isResponse(auth) ? auth : giocatoriPerEditor(env);
+    }
+    if (second === "matches" && parts.length === 2) {
+      const auth = await requireAdmin(env, request);
+      if (isResponse(auth)) return auth;
+      if (method === "GET") return elencoPartite(env, url.searchParams.get("season"));
+      if (method === "POST") return creaPartita(env, auth.player.id, request);
+      return NOT_FOUND();
+    }
+    if (second === "matches" && parts.length === 3) {
+      const auth = await requireAdmin(env, request);
+      if (isResponse(auth)) return auth;
+      const id = decodeURIComponent(parts[2] ?? "");
+      if (method === "GET") return dettaglioPartita(env, id);
+      if (method === "PUT") return modificaPartita(env, auth.player.id, id, request);
+      if (method === "DELETE") return eliminaPartita(env, auth.player.id, id);
+      return NOT_FOUND();
+    }
     return NOT_FOUND();
+  }
+
+  if (head === "config" && method === "GET" && parts.length === 1) {
+    return json({ adminPath: adminPath(env) });
   }
 
   if (head === "seasons" && method === "GET") return seasons(env);

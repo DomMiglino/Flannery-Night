@@ -1132,6 +1132,182 @@ button {
   color: var(--testo-2);
 }
 
+/* ---------- gestione partite (pagina /copilota, una sezione: Partite) ---------- */
+
+.copilota-riga {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.copilota-riga:active {
+  background: var(--superficie-2);
+}
+
+.elenco > li {
+  margin-bottom: 8px;
+}
+
+.copilota-riga-data {
+  flex: 0 0 auto;
+  color: var(--testo-2);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.copilota-riga-risultato {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.copilota-modulo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.copilota-squadra {
+  margin: 12px 0;
+  padding: 10px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  min-width: 0;
+}
+
+.copilota-squadra-nome {
+  margin: 0 0 8px;
+  color: var(--testo-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.copilota-giocatore {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--bordo);
+  min-width: 0;
+}
+
+.copilota-giocatore:last-of-type {
+  border-bottom: 0;
+}
+
+.copilota-nome {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.copilota-passi {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.copilota-misura {
+  color: var(--testo-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.copilota-passo {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--superficie-2);
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.copilota-numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 8px;
+  background: var(--superficie-2);
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.copilota-mvp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.copilota-mvp input {
+  width: 22px;
+  height: 22px;
+}
+
+.copilota-togli {
+  align-self: flex-start;
+  min-height: 44px;
+}
+
+.copilota-aggiunta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.copilota-aggiunta .pulsante {
+  width: 100%;
+}
+
+.copilota-testo {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.copilota-anteprima {
+  font-weight: 600;
+}
+
+.copilota-elimina {
+  margin-top: 8px;
+  color: var(--negativo);
+  border-color: currentColor;
+}
+
+@media (min-width: 480px) {
+  .copilota-aggiunta {
+    flex-direction: row;
+  }
+
+  .copilota-aggiunta .selezione {
+    flex: 1 1 auto;
+  }
+}
+
 /* ---------- barra in basso ---------- */
 
 .barra {

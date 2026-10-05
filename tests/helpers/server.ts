@@ -181,7 +181,7 @@ export async function startServer(): Promise<TestServer> {
     bindings: {
       PIN_PEPPER: PEPPER,
       SESSION_SECRET: SESSION_SECRET,
-      ADMIN_PATH: "/gestione",
+      ADMIN_PATH: "/copilota",
     },
   });
   const db = (await mf.getD1Database("DB")) as unknown as D1Database;

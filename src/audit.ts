@@ -12,7 +12,10 @@ export type AuditAction =
   | "pin_upgraded"
   | "reset_pin"
   | "unlock"
-  | "admin_session";
+  | "admin_session"
+  | "match_create"
+  | "match_update"
+  | "match_delete";
 
 export async function audit(env: Env, actor: string | null, action: AuditAction, detail = ""): Promise<void> {
   await env.DB.prepare(

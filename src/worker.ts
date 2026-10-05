@@ -1,9 +1,11 @@
-// PASSO 3/4: Worker. Le API sono in src/router.ts; il resto arriva
-// dagli static assets di public/ (interfaccia del passo 4).
-// Il percorso dell'area di amministrazione e' ADMIN_PATH, deciso al passo 5.
+// PASSO 5a: Worker. Le API sono in src/router.ts; il resto arriva
+// dagli static assets di public/ (interfaccia).
+// Il percorso dell'area di gestione e' ADMIN_PATH ("/copilota"):
+// come le altre rotte dell'interfaccia, serve la pagina singola e
+// la vista decide cosa mostrare in base all'accesso.
 
-import { adminPath, type Env } from "./env";
-import { fail, MSG, withSecurityHeaders } from "./http";
+import { type Env } from "./env";
+import { withSecurityHeaders } from "./http";
 import { handleApi } from "./router";
 
 export default {
@@ -12,13 +14,8 @@ export default {
     if (url.pathname.startsWith("/api/")) {
       return withSecurityHeaders(await handleApi(request, env, url));
     }
-    // Percorso riservato: la pagina arriva nel passo 5.
-    if (url.pathname === adminPath(env)) {
-      return withSecurityHeaders(fail(404, MSG.badRequest));
-    }
-    // Le rotte dell'interfaccia (/classifica, /giocatori, ...) non sono file:
-    // in wrangler.toml gli asset rispondono index.html per ogni percorso
-    // che non è /api/* e non è un file esistente.
+    // Tutte le rotte dell'interfaccia (inclusa quella dell'area di
+    // gestione) arrivano dagli asset con gestione a pagina singola.
     const assets = env.ASSETS as { fetch(r: Request): Promise<Response> } | undefined;
     if (assets) return withSecurityHeaders(await assets.fetch(request));
     return withSecurityHeaders(new Response("Not found", { status: 404 }));
