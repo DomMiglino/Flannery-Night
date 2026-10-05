@@ -69,6 +69,19 @@ export function fasciaOverall(overallUp) {
   return "bronzo";
 }
 
+export function suggerisciNomeStagione(attuale) {
+  const testo = String(attuale ?? "").trim();
+  if (!testo) return "";
+  const match = testo.match(/^(\d{4})\s*\/\s*(\d{2})$/);
+  if (!match) return "";
+  const base = Number(match[1]);
+  const finale = Number(match[2]);
+  if (!Number.isInteger(base) || !Number.isInteger(finale)) return "";
+  const nuovoBase = base + 1;
+  const nuovoFinale = (finale + 1) % 100;
+  return `${nuovoBase}/${String(nuovoFinale).padStart(2, "0")}`;
+}
+
 const COLONNE = [
   { id: "nome", etichetta: "Giocatore", completa: "Giocatore", chiave: "name", iniziale: "asc" },
   { id: "power", etichetta: "FPS", completa: "Flannery Power Score", chiave: "powerScore", iniziale: "desc" },
@@ -136,6 +149,91 @@ export async function renderClassifica(root, ctx) {
 
   const memoria = memoriaOrdinamento("classifica", location.pathname, INIZIALE);
   const contenitore = el("div");
+  const admin = !!ctx.me() && ctx.me().isAdmin === true;
+  const stagioneAttiva = risposta.season && risposta.season.name ? risposta.season.name : "";
+  const suggerito = suggerisciNomeStagione(stagioneAttiva);
+
+  if (admin) {
+    const panel = el("div", { className: "pannello-gestione", attrs: { hidden: true } });
+    const input = el("input", { className: "campo-gestione", attrs: { type: "text", maxlength: "20", value: suggerito } });
+    const erroreNodo = el("p", { className: "nota-errore", text: "", attrs: { hidden: true } });
+    const intro = el("div", { className: "gestione-fase", children: [
+      el("label", { className: "etichetta-gestione", text: "Nome stagione", attrs: { for: "nuova-stagione-nome" } }),
+      input,
+      el("div", { className: "azione-gestione", children: [
+        el("button", {
+          className: "pulsante pulsante-grande",
+          text: "Continua",
+          attrs: { type: "button" },
+          on: { click: () => {
+            const nome = input.value.trim();
+            if (!nome) {
+              erroreNodo.textContent = "Il nome della stagione non può essere vuoto.";
+              erroreNodo.hidden = false;
+              return;
+            }
+            const conferma = panel.querySelector(".gestione-fase-conferma");
+            const test = panel.querySelector(".nuova-stagione-testo");
+            if (test) test.textContent = `Chiudere la stagione ${stagioneAttiva} e iniziare ${nome}? Classifica e statistiche ripartono da zero. Le partite della stagione chiusa restano consultabili ma non modificabili. L'operazione non si annulla.`;
+            if (conferma) conferma.hidden = false;
+            intro.hidden = true;
+            erroreNodo.hidden = true;
+          } },
+        }),
+      ]}),
+    ]});
+    const conferma = el("div", { className: "gestione-fase-conferma", attrs: { hidden: true }, children: [
+      el("p", { className: "nuova-stagione-testo", text: "" }),
+      el("div", { className: "azione-gestione", children: [
+        el("button", {
+          className: "pulsante pulsante-grande",
+          text: "Conferma",
+          attrs: { type: "button" },
+          on: { click: async () => {
+            const nome = input.value.trim();
+            try {
+              const esito = await api.nuovaStagione(nome);
+              if (esito && esito.season) {
+                ctx.navigate(withSeason("/classifica", esito.season.id));
+                return;
+              }
+              throw new Error("Non riesco a creare la nuova stagione.");
+            } catch (err) {
+              erroreNodo.textContent = err instanceof Error ? err.message : "Non riesco a creare la nuova stagione.";
+              erroreNodo.hidden = false;
+              intro.hidden = false;
+              conferma.hidden = true;
+            }
+          } },
+        }),
+        el("button", {
+          className: "pulsante-secondario",
+          text: "Annulla",
+          attrs: { type: "button" },
+          on: { click: () => {
+            panel.hidden = true;
+            intro.hidden = false;
+            erroreNodo.hidden = true;
+            conferma.hidden = true;
+          } },
+        }),
+      ]}),
+    ]});
+    panel.append(intro, erroreNodo, conferma);
+    const pulsanteNuova = el("button", {
+      className: "pulsante pulsante-grande tasto-gestione-separato",
+      text: "Nuova stagione",
+      attrs: { type: "button" },
+      on: { click: () => {
+        panel.hidden = false;
+        input.value = suggerisciNomeStagione(stagioneAttiva);
+        intro.hidden = false;
+        erroreNodo.hidden = true;
+        conferma.hidden = true;
+      } },
+    });
+    root.append(el("div", { className: "gestione-sezione", children: [pulsanteNuova, panel] }));
+  }
 
   function disegna() {
     const stato = memoria.ordinamento;

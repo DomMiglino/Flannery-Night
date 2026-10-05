@@ -24,9 +24,10 @@ import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../pub
 import { etichetteGol, formatoPartita, guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
-import { fasciaOverall, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
+import { fasciaOverall, suggerisciNomeStagione, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
 import { testoDoppio } from "../public/js/views/giocatori.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
+import { etichettaAzioneRegistro, formatoDettaglioRegistro } from "../public/js/views/registro.js";
 import { formatoOra, validaDatiGiocatore } from "../public/js/views/editor_giocatore.js";
 import { azioneAccount, impostaCollegato, isCollegato, prendiReturnTo, ricordaReturnTo, utenteCollegato, vociMenu } from "../public/js/state.js";
 import { readFileSync } from "node:fs";
@@ -651,6 +652,16 @@ describe("icona e menu dell'account", () => {
   it("collegato: menu con Cambia PIN ed Esci, senza Accedi", () => {
     expect(vociMenu(true)).toEqual([
       { id: "voce-cambia", visibile: true },
+      { id: "voce-accedi", visibile: false },
+      { id: "voce-esci", visibile: true },
+    ]);
+  });
+
+  it("admin collegato: vede Registro ed Esporta dati", () => {
+    expect(vociMenu(true, true)).toEqual([
+      { id: "voce-cambia", visibile: true },
+      { id: "voce-registro", visibile: true },
+      { id: "voce-exporta", visibile: true },
       { id: "voce-accedi", visibile: false },
       { id: "voce-esci", visibile: true },
     ]);

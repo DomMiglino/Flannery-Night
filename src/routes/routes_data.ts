@@ -48,7 +48,7 @@ async function resolveSeasonAll(env: Env) {
 export async function ranking(env: Env, seasonParam: string | null): Promise<Response> {
   const season = await resolveSeason(env, seasonParam);
   if (!season) return fail(404, MSG.notFound);
-  const rows = await buildRanking(env, season.id);
+  const rows = (await buildRanking(env, season.id)).filter((row) => row.played > 0);
   return json({
     season: { id: season.id, name: season.name },
     rows: rows.map((r) => ({

@@ -39,8 +39,9 @@ describe("classifica", () => {
     expect(res.body.season.id).toBe(1);
     const rows = res.body.rows as Array<{ id: string; powerScore: number; played: number; guidinha: number; mvpWeight: number; overallUp: number | null }>;
     expect(rows.length).toBeGreaterThan(5);
-    // Chi non ha mai giocato c'�� comunque in classifica.
-    expect(rows.map((r) => r.id)).toContain("fake-esterno");
+    // In classifica compaiono solo giocatori con presenze nella stagione.
+    expect(rows.map((r) => r.id)).not.toContain("fake-esterno");
+    expect(rows.every((r) => r.played > 0)).toBe(true);
     for (const r of rows) {
       expect(typeof r.mvpWeight).toBe("number");
     }
@@ -115,8 +116,8 @@ describe("classifica", () => {
 
   it("season= sceglie la stagione", async () => {
     const res = await s.call("/api/ranking?season=2");
-    // Stagione senza partite: tutti a zero, nessuna statistica inventata.
-    expect(res.body.rows.every((r: { played: number; points: number }) => r.played === 0)).toBe(true);
+    // Stagione senza partite: nessuno ha presenze da mostrare in classifica.
+    expect(res.body.rows).toEqual([]);
     const byName = await s.call("/api/ranking?season=2026/27");
     expect(byName.body.rows.length).toBeGreaterThan(5);
     expect(byName.body.rows.some((r: { played: number }) => r.played > 0)).toBe(true);

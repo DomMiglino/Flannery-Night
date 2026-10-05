@@ -683,6 +683,127 @@ button {
   width: 100%;
 }
 
+.tasto-gestione-separato {
+  margin-bottom: 12px;
+}
+
+.gestione-sezione {
+  display: grid;
+  gap: 8px;
+}
+
+.pannello-gestione {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: 12px;
+}
+
+.etichetta-gestione {
+  color: var(--testo-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.campo-gestione {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  background: var(--superficie-2);
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+}
+
+.azione-gestione {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gestione-fase-conferma {
+  display: grid;
+  gap: 8px;
+}
+
+.nuova-stagione-testo {
+  margin: 0;
+  color: var(--testo);
+}
+
+.registro-lista {
+  display: grid;
+  gap: 12px;
+}
+
+.registro-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: 12px;
+}
+
+.registro-testa {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.registro-data {
+  color: var(--testo-2);
+  font-size: 0.8rem;
+}
+
+.registro-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--bordo);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.registro-badge-sicurezza {
+  background: rgba(195, 77, 77, 0.12);
+  border-color: rgba(195, 77, 77, 0.4);
+  color: var(--negativo);
+}
+
+.registro-badge-dati {
+  background: rgba(31, 95, 208, 0.12);
+  border-color: rgba(31, 95, 208, 0.35);
+  color: var(--accento);
+}
+
+.registro-riga {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.registro-label {
+  color: var(--testo-2);
+  font-size: 0.8rem;
+}
+
+.registro-valore {
+  overflow-wrap: anywhere;
+}
+
+.registro-footer {
+  margin-top: 12px;
+}
+
 .pulsanti {
   display: flex;
   flex-wrap: wrap;

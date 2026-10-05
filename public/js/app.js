@@ -34,6 +34,7 @@ import { renderClassifica } from "./views/classifica.js";
 import { renderGiocatori } from "./views/giocatori.js";
 import { renderHome } from "./views/home.js";
 import { renderPartite } from "./views/partite.js";
+import { renderRegistro } from "./views/registro.js";
 import { renderScheda } from "./views/scheda.js";
 
 const dom = {};
@@ -50,6 +51,8 @@ function prendiElementi() {
   dom.menuTitolo = document.getElementById("menu-titolo");
   dom.voceAccedi = document.getElementById("voce-accedi");
   dom.voceCambia = document.getElementById("voce-cambia");
+  dom.voceRegistro = document.getElementById("voce-registro");
+  dom.voceExporta = document.getElementById("voce-exporta");
   dom.voceEsci = document.getElementById("voce-esci");
   dom.nav = new Map([
     ["home", document.getElementById("nav-home")],
@@ -131,19 +134,21 @@ function disegnaBarra(routeName) {
 
 const NODI_VOCI_MENU = {
   "voce-cambia": "voceCambia",
+  "voce-registro": "voceRegistro",
+  "voce-exporta": "voceExporta",
   "voce-accedi": "voceAccedi",
   "voce-esci": "voceEsci",
 };
 
 function disegnaMenu() {
   const collegato = isCollegato();
+  const utente = utenteCollegato();
   dom.menu.hidden = true;
   dom.pulsanteAccount.setAttribute("aria-expanded", "false");
-  for (const voce of vociMenu(collegato)) {
+  for (const voce of vociMenu(collegato, Boolean(utente && utente.isAdmin))) {
     const nodo = dom[NODI_VOCI_MENU[voce.id]];
     if (nodo) nodo.hidden = !voce.visibile;
   }
-  const utente = utenteCollegato();
   dom.menuTitolo.textContent = collegato && utente ? utente.name : "Account";
 }
 
@@ -177,13 +182,16 @@ async function disegna() {
         await renderClassifica(dom.contenuto, ctx);
         break;
       case "giocatori":
-        await renderGiocatori(dom.contenuto, ctx);
+        await renderGiocatori(dom.contenuto, ctx, scelta);
         break;
       case "scheda":
         await renderScheda(dom.contenuto, ctx, scelta.playerId);
         break;
       case "partite":
         await renderPartite(dom.contenuto, ctx, scelta);
+        break;
+      case "registro":
+        await renderRegistro(dom.contenuto, ctx);
         break;
       case "cambia":
         await renderCambiaPin(dom.contenuto, ctx);
@@ -214,6 +222,7 @@ function titoloPagina(nome) {
   if (nome === "giocatori") return "Giocatori · Flannery Night";
   if (nome === "scheda") return "Giocatore · Flannery Night";
   if (nome === "partite") return "Partite · Flannery Night";
+  if (nome === "registro") return "Registro · Flannery Night";
   if (nome === "cambia") return "Cambia PIN · Flannery Night";
   return "Accedi · Flannery Night";
 }
@@ -229,6 +238,29 @@ async function avvia() {
   }
   linkInterno(dom.voceAccedi, (href) => vai(href));
   linkInterno(dom.voceCambia, (href) => vai(href));
+  if (dom.voceRegistro) linkInterno(dom.voceRegistro, (href) => vai(href));
+  if (dom.voceExporta) dom.voceExporta.addEventListener("click", async () => {
+    try {
+      const dati = await api.esportaDati();
+      const blob = new Blob([JSON.stringify(dati, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `flannery-night-${new Date().toISOString().slice(0, 10)}.json`;
+      a.rel = "noopener";
+      document.body.append(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      apriMenu(false);
+    } catch (erroreApi) {
+      if (erroreApi instanceof ApiError && erroreApi.status === 401) {
+        sessioneScaduta();
+        return;
+      }
+      window.alert(erroreApi instanceof Error ? erroreApi.message : "Non riesco a esportare i dati");
+    }
+  });
 
   linkInterno(dom.titoloSito, (href) => vai(href));
   dom.pulsanteAccount.addEventListener("click", () => {

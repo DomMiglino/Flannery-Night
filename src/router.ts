@@ -3,12 +3,12 @@
 // avere l'header Origin sullo stesso host del sito, altrimenti 403.
 
 import { type Env } from "./env";
-import { fail, MSG } from "./http";
+import { fail, MSG, readJsonObject } from "./http";
 import { currentPlayer, type AuthedPlayer } from "./session";
 import { authPlayers, authStatus, createPin, login, logout } from "./routes/routes_auth";
 import { changePin, me, myVotes } from "./routes/routes_me";
 import { putVote } from "./routes/routes_votes";
-import { auditTrail, resetPin, unlock } from "./routes/routes_admin";
+import { auditTrail, createSeason, exportData, resetPin, unlock } from "./routes/routes_admin";
 import {
   creaPartita,
   dettaglioPartita,
@@ -123,7 +123,15 @@ export async function handleApi(request: Request, env: Env, url: URL): Promise<R
     }
     if (method === "GET" && second === "audit") {
       const auth = await requireAdmin(env, request);
-      return isResponse(auth) ? auth : auditTrail(env);
+      return isResponse(auth) ? auth : auditTrail(env, Number(url.searchParams.get("before") ?? "") || null);
+    }
+    if (method === "GET" && second === "export") {
+      const auth = await requireAdmin(env, request);
+      return isResponse(auth) ? auth : exportData(env, auth);
+    }
+    if (method === "POST" && second === "seasons") {
+      const auth = await requireAdmin(env, request);
+      return isResponse(auth) ? auth : createSeason(env, auth, await readJsonObject(request).then((obj) => (obj ? String(obj.name ?? "") : "")));
     }
     if (second === "players" && parts.length === 2) {
       const auth = await requireAdmin(env, request);

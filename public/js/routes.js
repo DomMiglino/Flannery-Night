@@ -10,6 +10,7 @@ export const VISTA = {
   home: "home",
   accesso: "accesso",
   cambia: "cambia",
+  registro: "registro",
 };
 
 /** Percorso iniziale: chi non è entrato va in classifica, chi è entrato in home. */
@@ -78,6 +79,7 @@ export function resolveRoute(pathname, { authed = false, search = "" } = {}) {
   if (path === "/accesso/cambia") {
     return authed ? { name: VISTA.cambia, season } : { redirect: "/accesso", season };
   }
+  if (path === "/registro") return { name: VISTA.registro, season };
   if (path === "/accesso") return authed ? { redirect: "/home", season } : { name: VISTA.accesso, season };
   return { redirect: homePath(authed), ...resta };
 }

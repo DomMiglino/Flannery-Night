@@ -17,7 +17,9 @@ export type AuditAction =
   | "match_delete"
   | "player_create"
   | "player_update"
-  | "player_delete";
+  | "player_delete"
+  | "season_create"
+  | "export_data";
 
 export function auditStatement(env: Env, actor: string | null, action: AuditAction, detail = "") {
   return env.DB.prepare(

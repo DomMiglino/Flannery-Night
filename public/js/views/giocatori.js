@@ -305,7 +305,7 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
   if (gestione) {
     root.append(
       el("button", {
-        className: "pulsante pulsante-grande",
+        className: "pulsante pulsante-grande tasto-gestione-separato",
         text: "Nuovo giocatore",
         attrs: { type: "button" },
         on: { click: () => ctx.navigate("/giocatori/nuovo") },

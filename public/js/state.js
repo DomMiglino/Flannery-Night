@@ -54,12 +54,17 @@ export function azioneAccount(collegato) {
 /**
  * Voci del menu dell'account visibili per lo stato dato.
  */
-export function vociMenu(collegato) {
-  return [
+export function vociMenu(collegato, isAdmin = false) {
+  const voci = [
     { id: "voce-cambia", visibile: collegato },
     { id: "voce-accedi", visibile: !collegato },
     { id: "voce-esci", visibile: collegato },
   ];
+  if (collegato && isAdmin) {
+    voci.splice(1, 0, { id: "voce-registro", visibile: true });
+    voci.splice(2, 0, { id: "voce-exporta", visibile: true });
+  }
+  return voci;
 }
 
 export function impostaCollegato(player) {

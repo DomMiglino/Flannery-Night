@@ -69,7 +69,7 @@ export async function renderPartite(root, ctx, rotta = {}) {
     if (gestione && modificabile) {
       root.append(
         el("button", {
-          className: "pulsante pulsante-grande",
+          className: "pulsante pulsante-grande tasto-gestione-separato",
           text: "Nuova partita",
           attrs: { type: "button" },
           on: { click: () => ctx.navigate("/partite/nuova") },
