@@ -49,21 +49,32 @@ function zero(value) {
   return Number(value) === 0;
 }
 
+/**
+ * Fascia dell'overall per eccesso: oro da 81 in su, argento da 70 a 80,
+ * bronzo sotto il 70. Niente fascia senza voti.
+ */
+export function fasciaOverall(overallUp) {
+  if (overallUp === null || overallUp === undefined) return null;
+  if (overallUp >= 81) return "oro";
+  if (overallUp >= 70) return "argento";
+  return "bronzo";
+}
+
 const COLONNE = [
-  { id: "nome", etichetta: "Giocatore", chiave: "name", iniziale: "asc" },
-  { id: "power", etichetta: "Flannery Power Score", chiave: "powerScore", iniziale: "desc" },
-  { id: "forma", etichetta: "Forma", chiave: "formaScore", iniziale: "desc" },
-  { id: "giocate", etichetta: "Giocate", chiave: "played", iniziale: "desc" },
-  { id: "vinte", etichetta: "Vinte", chiave: "V", iniziale: "desc" },
-  { id: "pareggiate", etichetta: "Pareggiate", chiave: "P", iniziale: "desc" },
-  { id: "perse", etichetta: "Perse", chiave: "S", iniziale: "desc" },
-  { id: "gol", etichetta: "Gol", chiave: "goals", iniziale: "desc" },
-  { id: "mediagol", etichetta: "Media gol", chiave: "avgGoals", iniziale: "desc" },
-  { id: "autogol", etichetta: "Autogol", chiave: "ownGoals", iniziale: "desc" },
-  { id: "punti", etichetta: "Punti", chiave: "points", iniziale: "desc" },
-  { id: "mediapunti", etichetta: "Media punti", chiave: "avgPoints", iniziale: "desc" },
-  { id: "mvp", etichetta: "MVP", chiave: "mvp", iniziale: "desc" },
-  { id: "guidinha", etichetta: "Guidinha", chiave: "guidinha", iniziale: "desc" },
+  { id: "nome", etichetta: "Giocatore", completa: "Giocatore", chiave: "name", iniziale: "asc" },
+  { id: "power", etichetta: "FPS", completa: "Flannery Power Score", chiave: "powerScore", iniziale: "desc" },
+  { id: "forma", etichetta: "Forma", completa: "Forma", chiave: "formaScore", iniziale: "desc" },
+  { id: "giocate", etichetta: "G", completa: "Giocate", chiave: "played", iniziale: "desc" },
+  { id: "vinte", etichetta: "V", completa: "Vinte", chiave: "V", iniziale: "desc" },
+  { id: "pareggiate", etichetta: "X", completa: "Pareggiate", chiave: "P", iniziale: "desc" },
+  { id: "perse", etichetta: "P", completa: "Perse", chiave: "S", iniziale: "desc" },
+  { id: "gol", etichetta: "Gol", completa: "Gol", chiave: "goals", iniziale: "desc" },
+  { id: "mediagol", etichetta: "Media gol", completa: "Media gol", chiave: "avgGoals", iniziale: "desc" },
+  { id: "autogol", etichetta: "Autogol", completa: "Autogol", chiave: "ownGoals", iniziale: "desc" },
+  { id: "punti", etichetta: "Punti", completa: "Punti", chiave: "points", iniziale: "desc" },
+  { id: "mediapunti", etichetta: "Media punti", completa: "Media punti", chiave: "avgPoints", iniziale: "desc" },
+  { id: "mvp", etichetta: "MVP", completa: "MVP", chiave: "mvp", iniziale: "desc" },
+  { id: "guidinha", etichetta: "Guidinha", completa: "Guidinha", chiave: "guidinha", iniziale: "desc" },
 ];
 
 /** Spareggi ufficiali: Power Score, poi somma pesi MVP, poi nome. */
@@ -79,7 +90,7 @@ function intestazione(colonna, stato, alToccare) {
   const attiva = stato.id === colonna.id;
   const bottone = el("button", {
     className: attiva ? "th-ordina th-attiva" : "th-ordina",
-    attrs: { type: "button", "aria-label": `Ordina per ${colonna.etichetta}` },
+    attrs: { type: "button", "aria-label": `Ordina per ${colonna.completa || colonna.etichetta}` },
     children: [
       el("span", { text: colonna.etichetta }),
       el("span", {
@@ -134,21 +145,34 @@ export async function renderClassifica(root, ctx) {
     const corpo = el("tbody");
     for (const riga of ordinate) {
       const bandierina = bandiera(riga.flag);
+      const fascia = fasciaOverall(riga.overallUp);
+      const indirizzo = withSeason(`/giocatori/${encodeURIComponent(riga.id)}`, ctx.stagione());
       const nome = el("a", {
-        className: "tabella-nome",
-        attrs: { href: withSeason(`/giocatori/${encodeURIComponent(riga.id)}`, ctx.stagione()) },
+        className: fascia ? `tabella-nome fascia-${fascia}` : "tabella-nome",
+        attrs: {
+          href: indirizzo,
+          "aria-label": fascia ? `${riga.name}, fascia ${fascia}, overall ${riga.overallUp}` : riga.name,
+        },
         text: riga.name,
       });
       linkInterno(nome, ctx.navigate);
       const posizione = posizioneDi.get(riga.id) ?? 0;
       corpo.append(
         el("tr", {
+          className: "riga-link",
+          on: {
+            click: (evento) => {
+              const bersaglio = evento.target;
+              if (bersaglio && bersaglio.closest && bersaglio.closest("a,button")) return;
+              ctx.navigate(indirizzo);
+            },
+          },
           children: [
             el("th", {
               attrs: { scope: "row" },
               children: [
                 el("span", {
-                  className: posizione <= 3 ? "posizione posizione-top" : "posizione",
+                  className: "posizione",
                   text: String(posizione),
                   attrs: { "aria-hidden": "true" },
                 }),
@@ -186,8 +210,8 @@ export async function renderClassifica(root, ctx) {
 
     const tabella = el("table", {
       className: "tabella",
+      attrs: { "aria-label": `Classifica ${risposta.season.name}: posizione, punteggio e statistiche di ogni giocatore.` },
       children: [
-        el("caption", { className: "tabella-descrizione", text: `Classifica ${risposta.season.name}: posizione, punteggio e statistiche di ogni giocatore.` }),
         el("thead", { children: [testa] }),
         corpo,
       ],

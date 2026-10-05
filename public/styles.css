@@ -29,6 +29,9 @@
   --zebra: #edf1f7;
   --evidenza: #e2ebfb;
   --riga-hover: #e6ebf3;
+  --oro: #7a5c00;
+  --argento: #5b6470;
+  --bronzo: #8a4b00;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +51,9 @@
     --zebra: #202936;
     --evidenza: #24344d;
     --riga-hover: #26303d;
+    --oro: #e3b93c;
+    --argento: #c3ccd6;
+    --bronzo: #f0be6a;
   }
 }
 
@@ -540,14 +546,23 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-/* Prime tre posizioni: numero in un cerchietto, non dipende solo dal colore. */
-.posizione-top {
-  width: 28px;
-  height: 28px;
-  border: 2px solid var(--accento);
-  border-radius: 50%;
-  color: var(--testo);
-  font-weight: 700;
+/* Nome colorato per fascia di overall, con alternativa testuale
+   nell'aria-label del link: il colore non è l'unico segnale. */
+.fascia-oro {
+  color: var(--oro);
+}
+
+.fascia-argento {
+  color: var(--argento);
+}
+
+.fascia-bronzo {
+  color: var(--bronzo);
+}
+
+/* Tutta la riga porta alla scheda del giocatore. */
+.riga-link {
+  cursor: pointer;
 }
 
 .bandiera {
@@ -918,28 +933,73 @@ button {
 /* ---------- partite ---------- */
 
 .partita {
-  margin-bottom: 12px;
-  padding: 12px;
+  margin-bottom: 8px;
+  padding: 10px;
   background: var(--superficie);
   border: 1px solid var(--bordo);
   border-radius: var(--raggio);
 }
 
+.partita-testa {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .partita-data {
-  margin: 0 0 2px;
+  margin: 0;
   color: var(--testo-2);
   font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .partita-risultato {
-  margin: 0 0 10px;
-  font-size: 1.1rem;
-  font-weight: 700;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.partita-squadra {
   overflow-wrap: anywhere;
 }
 
+.partita-punteggio {
+  font-size: 1.35rem;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.badge-formato {
+  padding: 1px 8px;
+  border: 1px solid var(--bordo);
+  border-radius: 999px;
+  color: var(--testo-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.squadre {
+  display: grid;
+  gap: 8px;
+}
+
+@media (min-width: 600px) {
+  .squadre {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .squadra {
-  margin-bottom: 8px;
+  min-width: 0;
 }
 
 .squadra-nome {
@@ -951,28 +1011,53 @@ button {
   letter-spacing: 0.05em;
 }
 
-.squadra-elenco {
+.chip-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.squadra-giocatore {
-  display: flex;
+.chip-giocatore {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  border-bottom: 1px solid var(--bordo);
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--superficie-2);
+  border: 1px solid var(--bordo);
+  border-radius: 999px;
+  font-size: 0.9rem;
 }
 
-.squadra-giocatore:last-child {
-  border-bottom: 0;
+.chip-nome {
+  overflow-wrap: anywhere;
 }
 
-.squadra-gol {
-  min-width: 26px;
-  text-align: right;
+/* Gol: pill piena. Autogol: contorno tratteggiato e segno meno:
+   forma e segno bastano a distinguerle, non solo il colore. */
+.pill-gol {
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--testo);
+  color: var(--superficie);
+  font-size: 0.75rem;
   font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill-autogol {
+  min-width: 22px;
+  padding: 0 6px;
+  border: 1px dashed var(--negativo);
+  border-radius: 6px;
+  color: var(--negativo);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
@@ -986,12 +1071,19 @@ button {
 }
 
 .guidinha {
-  margin: 10px 0 0;
-  padding-top: 8px;
+  margin: 8px 0 0;
+  padding-top: 6px;
   border-top: 1px solid var(--bordo);
   color: var(--testo-2);
   font-size: 0.9rem;
   overflow-wrap: anywhere;
+}
+
+.guidinha-etichetta {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .guidinha-nome {
@@ -1051,16 +1143,28 @@ button {
 .barra-voce {
   display: flex;
   flex: 1 1 0;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   min-height: var(--barra-altezza);
   padding: 6px 2px;
   color: var(--testo-2);
-  font-size: 0.82rem;
-  font-weight: 600;
   text-align: center;
   text-decoration: none;
   overflow-wrap: anywhere;
+}
+
+.barra-icona {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.barra-etichetta {
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .barra-voce[aria-current="page"] {
@@ -1070,6 +1174,6 @@ button {
 
 @media (min-width: 480px) {
   .barra-etichetta {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
   }
 }

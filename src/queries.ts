@@ -215,6 +215,8 @@ export interface RankingRow extends PlayerSeason {
   goals: number;
   ownGoals: number;
   mvp: number;
+  /** Overall per eccesso dai voti ricevuti (mediane): serve alla fascia oro/argento/bronzo. */
+  overallUp: number | null;
 }
 
 /** Classifica nell'ordine di calc.standings, arricchita di nomi e contatori. */
@@ -222,6 +224,7 @@ export async function buildRanking(env: Env, seasonId: number): Promise<RankingR
   const players = await listPlayers(env);
   const matches = await loadSeasonMatches(env, seasonId);
   const guidinha = await loadGuidinhaCounts(env, seasonId);
+  const votesByTarget = await loadVotesByTarget(env);
   const ids = players.map((p) => p.id);
   const table = standings(matches, ids);
   const counters = seasonCounters(matches, ids);
@@ -241,6 +244,7 @@ export async function buildRanking(env: Env, seasonId: number): Promise<RankingR
       goals: c.goals,
       ownGoals: c.ownGoals,
       mvp: c.mvp,
+      overallUp: summarizeVotes(player.role, votesByTarget.get(row.playerId) ?? []).overallUp,
     };
   });
 }

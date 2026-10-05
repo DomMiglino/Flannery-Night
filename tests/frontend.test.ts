@@ -21,10 +21,10 @@ import { PESI, etichettePerRuolo, myOverall, valoriDaVoto, valoriIniziali, media
 import { clamp, flagUrl, formatDate, formatNumber, formatOverall, formatOverallUp, formatShortDate, formatVotes, formaLabel, stepValue } from "../public/js/format.js";
 import { filterPlayers, rolesOf, withAppearances } from "../public/js/lists.js";
 import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../public/js/ordina.js";
-import { guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
+import { etichetteGol, formatoPartita, guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
-import { testoRendimento } from "../public/js/views/classifica.js";
+import { fasciaOverall, testoRendimento } from "../public/js/views/classifica.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
 import { azioneAccount, impostaCollegato, isCollegato, prendiReturnTo, ricordaReturnTo, utenteCollegato, vociMenu } from "../public/js/state.js";
 import { readFileSync } from "node:fs";
@@ -444,6 +444,38 @@ describe("partite", () => {
     expect(guidinhaLinea({ playerName: null, text: "qualcosa" })).toBe(null);
     expect(guidinhaLinea({ playerName: "Antonio", text: "" })).toEqual({ nome: "Antonio", testo: "" });
   });
+
+  it("gol e autogol a zero non mostrano niente", () => {
+    expect(etichetteGol(0, 0)).toEqual([]);
+    expect(etichetteGol(null, undefined)).toEqual([]);
+  });
+
+  it("gol in pill piena con etichetta al singolare e plurale", () => {
+    expect(etichetteGol(1, 0)).toEqual([{ testo: "1", etichetta: "1 gol", autogol: false }]);
+    expect(etichetteGol(3, 0)).toEqual([{ testo: "3", etichetta: "3 gol", autogol: false }]);
+  });
+
+  it("autogol con il meno davanti e aspetto diverso", () => {
+    expect(etichetteGol(0, 1)).toEqual([{ testo: "-1", etichetta: "1 autogol", autogol: true }]);
+    expect(etichetteGol(0, 2)).toEqual([{ testo: "-2", etichetta: "2 autogol", autogol: true }]);
+  });
+
+  it("gol e autogol insieme mostrano entrambe le pill", () => {
+    expect(etichetteGol(2, 1)).toEqual([
+      { testo: "2", etichetta: "2 gol", autogol: false },
+      { testo: "-1", etichetta: "1 autogol", autogol: true },
+    ]);
+  });
+
+  it("formato dal numero di giocatori, solo a squadre pari", () => {
+    const cinque = (n: string) => ({ team: n, players: [1, 2, 3, 4, 5] });
+    expect(formatoPartita([cinque("A"), cinque("B")])).toBe("5v5");
+    const otto = (n: string) => ({ team: n, players: [1, 2, 3, 4, 5, 6, 7, 8] });
+    expect(formatoPartita([otto("A"), otto("B")])).toBe("8v8");
+    expect(formatoPartita([cinque("A"), otto("B")])).toBe(null);
+    expect(formatoPartita([cinque("A")])).toBe(null);
+    expect(formatoPartita([])).toBe(null);
+  });
 });
 
 describe("stato dopo l'accesso", () => {
@@ -495,6 +527,18 @@ describe("sessione scaduta", () => {
 });
 
 describe("tabella della classifica", () => {
+  it("fascia oro da 81, argento da 70 a 80, bronzo sotto, niente senza voti", () => {
+    expect(fasciaOverall(95)).toBe("oro");
+    expect(fasciaOverall(81)).toBe("oro");
+    expect(fasciaOverall(80)).toBe("argento");
+    expect(fasciaOverall(79)).toBe("argento");
+    expect(fasciaOverall(70)).toBe("argento");
+    expect(fasciaOverall(69)).toBe("bronzo");
+    expect(fasciaOverall(0)).toBe("bronzo");
+    expect(fasciaOverall(null)).toBe(null);
+    expect(fasciaOverall(undefined)).toBe(null);
+  });
+
   it("il rendimento diventa una riga di testo con la stella", () => {
     expect(testoRendimento(["V*", "V", "P", "S*", "V"])).toBe("V★ V P S★ V");
     expect(testoRendimento([])).toBe("");
