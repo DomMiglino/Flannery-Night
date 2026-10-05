@@ -59,24 +59,26 @@ export function resolveRoute(pathname, { authed = false, search = "" } = {}) {
   if (path === "/home") return authed ? { name: VISTA.home, season } : { redirect: "/accesso", season };
   if (path === "/classifica") return { name: VISTA.classifica, season };
   if (path === "/giocatori") return { name: VISTA.giocatori, season };
+  if (path === "/giocatori/nuovo") return { name: VISTA.giocatori, sotto: "nuovo", season };
+  if (path.startsWith("/giocatori/")) {
+    const resto = safeDecode(path.slice("/giocatori/".length));
+    if (resto === "") return { redirect: "/giocatori", season };
+    const modifica = resto.match(/^(.+)\/modifica$/);
+    if (modifica && modifica[1] !== "") return { name: VISTA.giocatori, modificaId: modifica[1], season };
+    return { name: VISTA.scheda, playerId: resto, season };
+  }
   if (path === "/partite") return { name: VISTA.partite, season };
   if (path === "/partite/nuova") return { name: VISTA.partite, sotto: "nuova", season };
   if (path.startsWith("/partite/")) {
     const resto = safeDecode(path.slice("/partite/".length));
     const modifica = resto.match(/^(.+)\/modifica$/);
     if (modifica && modifica[1] !== "") return { name: VISTA.partite, modificaId: modifica[1], season };
-    // Sottopercorso sconosciuto: archivio normale, senza reindirizzamenti.
     return { name: VISTA.partite, season };
   }
   if (path === "/accesso/cambia") {
     return authed ? { name: VISTA.cambia, season } : { redirect: "/accesso", season };
   }
   if (path === "/accesso") return authed ? { redirect: "/home", season } : { name: VISTA.accesso, season };
-  if (path.startsWith("/giocatori/")) {
-    const id = safeDecode(path.slice("/giocatori/".length));
-    if (id === "") return { redirect: "/giocatori", season };
-    return { name: VISTA.scheda, playerId: id, season };
-  }
   return { redirect: homePath(authed), ...resta };
 }
 

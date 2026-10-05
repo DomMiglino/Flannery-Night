@@ -67,7 +67,14 @@ export const api = {
     request("/api/me/pin", { method: "POST", body: { current, new: next, newConfirm: nextConfirm } }),
 
   // strumenti di gestione (solo con permesso, la sicurezza resta sul server)
+  flags: () => request("/api/admin/flags"),
   giocatoriEditor: () => request("/api/admin/players"),
+  giocatoreAdmin: (id) => request(`/api/admin/players/${encodeURIComponent(id)}`),
+  creaGiocatore: (dati) => request("/api/admin/players", { method: "POST", body: dati }),
+  salvaGiocatore: (id, dati) => request(`/api/admin/players/${encodeURIComponent(id)}`, { method: "PUT", body: dati }),
+  eliminaGiocatore: (id) => request(`/api/admin/players/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  resetPin: (id) => request(`/api/admin/players/${encodeURIComponent(id)}/reset-pin`, { method: "POST" }),
+  unlock: (id) => request(`/api/admin/players/${encodeURIComponent(id)}/unlock`, { method: "POST" }),
   partiteGestione: (season) => request(`/api/admin/matches${season ? `?season=${encodeURIComponent(season)}` : ""}`),
   partitaGestione: (id) => request(`/api/admin/matches/${encodeURIComponent(id)}`),
   creaPartita: (partita) => request("/api/admin/matches", { method: "POST", body: partita }),

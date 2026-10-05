@@ -47,8 +47,26 @@ export async function renderScheda(root, ctx, playerId, conferma = null) {
     fisPia: scheda.fisPia,
   };
 
+  const me = ctx.me();
+  const gestione = !!me && me.isAdmin === true;
+
   clear(root);
   root.append(titolo("Giocatore"));
+  if (gestione) {
+    root.append(
+      el("div", {
+        className: "partita-strumenti",
+        children: [
+          el("button", {
+            className: "tasto-modifica",
+            text: "Modifica",
+            attrs: { type: "button", "aria-label": `Modifica ${scheda.name}` },
+            on: { click: () => ctx.navigate(`/giocatori/${encodeURIComponent(scheda.id)}/modifica`) },
+          }),
+        ],
+      }),
+    );
+  }
   root.append(
     riepilogo({
       nome: scheda.name,

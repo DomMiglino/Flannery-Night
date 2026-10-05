@@ -7,6 +7,7 @@
     "dev": "wrangler dev",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "flags": "node scripts/genera-bandiere.mjs",
     "migrate": "node migration/migrate.mjs",
     "d1:migrate:local": "wrangler d1 migrations apply DB --local"
   },

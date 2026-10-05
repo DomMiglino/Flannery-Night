@@ -18,3 +18,7 @@ not_found_handling = "single-page-application"
 # intestazioni di sicurezza arrivano su tutte le risposte, non solo sulle API.
 # Il Worker rimanda agli asset tutto ciò che non è /api/*.
 run_worker_first = true
+
+[build]
+command = "node scripts/genera-bandiere.mjs"
+

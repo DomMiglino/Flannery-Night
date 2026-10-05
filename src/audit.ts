@@ -14,12 +14,18 @@ export type AuditAction =
   | "unlock"
   | "match_create"
   | "match_update"
-  | "match_delete";
+  | "match_delete"
+  | "player_create"
+  | "player_update"
+  | "player_delete";
 
-export async function audit(env: Env, actor: string | null, action: AuditAction, detail = ""): Promise<void> {
-  await env.DB.prepare(
+export function auditStatement(env: Env, actor: string | null, action: AuditAction, detail = "") {
+  return env.DB.prepare(
     "INSERT INTO audit_log (at, actor_player_id, action, detail) VALUES (datetime('now'), ?, ?, ?)",
   )
-    .bind(actor, action, detail)
-    .run();
+    .bind(actor, action, detail);
+}
+
+export async function audit(env: Env, actor: string | null, action: AuditAction, detail = ""): Promise<void> {
+  await auditStatement(env, actor, action, detail).run();
 }

@@ -17,6 +17,14 @@ import {
   giocatoriPerEditor,
   modificaPartita,
 } from "./routes/routes_matches_admin";
+import {
+  creaGiocatore,
+  dettaglioGiocatoreAdmin,
+  elencoBandiere,
+  elencoGiocatoriAdmin,
+  eliminaGiocatore,
+  modificaGiocatore,
+} from "./routes/routes_players_admin";
 import { matches, playerDetail, players, ranking, seasons } from "./routes/routes_data";
 
 const WRITE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
@@ -98,21 +106,40 @@ export async function handleApi(request: Request, env: Env, url: URL): Promise<R
   }
 
   if (head === "admin") {
-    if (method === "POST" && second === "players" && parts[3] === "reset-pin") {
+    if (method === "GET" && second === "flags" && parts.length === 2) {
       const auth = await requireAdmin(env, request);
-      return isResponse(auth) ? auth : resetPin(env, auth, decodeURIComponent(parts[2] ?? ""));
+      return isResponse(auth) ? auth : elencoBandiere();
     }
-    if (method === "POST" && second === "players" && parts[3] === "unlock") {
-      const auth = await requireAdmin(env, request);
-      return isResponse(auth) ? auth : unlock(env, auth, decodeURIComponent(parts[2] ?? ""));
+    if (second === "players" && parts.length === 4) {
+      if (method === "POST" && parts[3] === "reset-pin") {
+        const auth = await requireAdmin(env, request);
+        return isResponse(auth) ? auth : resetPin(env, auth, decodeURIComponent(parts[2] ?? ""));
+      }
+      if (method === "POST" && parts[3] === "unlock") {
+        const auth = await requireAdmin(env, request);
+        return isResponse(auth) ? auth : unlock(env, auth, decodeURIComponent(parts[2] ?? ""));
+      }
+      return NOT_FOUND();
     }
     if (method === "GET" && second === "audit") {
       const auth = await requireAdmin(env, request);
       return isResponse(auth) ? auth : auditTrail(env);
     }
-    if (method === "GET" && second === "players" && parts.length === 2) {
+    if (second === "players" && parts.length === 2) {
       const auth = await requireAdmin(env, request);
-      return isResponse(auth) ? auth : giocatoriPerEditor(env);
+      if (isResponse(auth)) return auth;
+      if (method === "GET") return elencoGiocatoriAdmin(env);
+      if (method === "POST") return creaGiocatore(env, auth.player.id, request);
+      return NOT_FOUND();
+    }
+    if (second === "players" && parts.length === 3) {
+      const auth = await requireAdmin(env, request);
+      if (isResponse(auth)) return auth;
+      const id = decodeURIComponent(parts[2] ?? "");
+      if (method === "GET") return dettaglioGiocatoreAdmin(env, id);
+      if (method === "PUT") return modificaGiocatore(env, auth.player.id, id, request);
+      if (method === "DELETE") return eliminaGiocatore(env, auth.player.id, id);
+      return NOT_FOUND();
     }
     if (second === "matches" && parts.length === 2) {
       const auth = await requireAdmin(env, request);

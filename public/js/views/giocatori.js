@@ -10,11 +10,19 @@ import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../ord
 import { withSeason } from "../routes.js";
 import { bandiera, errore, scheletro, titolo } from "../ui.js";
 import { troncaNome } from "./classifica.js";
+import { lasciaAvviso, prendiAvviso } from "../state.js";
+import { renderEditorGiocatore } from "./editor_giocatore.js";
 
 /** Mediana come arriva dall'API (può avere un decimale); "—" senza voti. */
 function testoMediana(valore) {
   if (valore === null || valore === undefined) return "—";
   return Number.isInteger(valore) ? String(valore) : String(valore).replace(".", ",");
+}
+
+/** Ritorno all'archivio mantenendo la stagione scelta. */
+function indietroA(ctx) {
+  const stagione = ctx.stagione();
+  return stagione ? `/giocatori?stagione=${encodeURIComponent(String(stagione))}` : "/giocatori";
 }
 
 /** Overall per eccesso già calcolato dal server; "—" senza voti. */
@@ -86,7 +94,33 @@ function intestazione(colonna, stato, alToccare) {
   return el("th", { attrs: { scope: "col", "aria-sort": ariaSort(attiva, stato.direzione) }, children: [bottone] });
 }
 
-export async function renderGiocatori(root, ctx) {
+export async function renderGiocatori(root, ctx, rotta = {}) {
+  const me = ctx.me();
+  const gestione = !!me && me.isAdmin === true;
+
+  if (gestione && rotta.sotto === "nuovo") {
+    await renderEditorGiocatore(root, ctx, {
+      playerId: null,
+      indietro: indietroA(ctx),
+      allaFine: (messaggio) => {
+        lasciaAvviso(messaggio);
+        ctx.navigate(indietroA(ctx));
+      },
+    });
+    return;
+  }
+  if (gestione && typeof rotta.modificaId === "string" && rotta.modificaId !== "") {
+    await renderEditorGiocatore(root, ctx, {
+      playerId: rotta.modificaId,
+      indietro: indietroA(ctx),
+      allaFine: (messaggio) => {
+        lasciaAvviso(messaggio);
+        ctx.navigate(indietroA(ctx));
+      },
+    });
+    return;
+  }
+
   clear(root);
   root.append(titolo("Giocatori"));
   root.append(scheletro(8));
@@ -99,7 +133,7 @@ export async function renderGiocatori(root, ctx) {
   } catch (erroreApi) {
     clear(root);
     root.append(titolo("Giocatori"));
-    root.append(errore("Non riesco a caricare i dati", () => renderGiocatori(root, ctx)));
+    root.append(errore("Non riesco a caricare i dati", () => renderGiocatori(root, ctx, rotta)));
     return;
   }
 
@@ -266,6 +300,18 @@ export async function renderGiocatori(root, ctx) {
 
   clear(root);
   root.append(titolo("Giocatori"));
+  const avviso = prendiAvviso();
+  if (avviso) root.append(el("p", { className: "nota-ok", text: avviso, attrs: { role: "status" } }));
+  if (gestione) {
+    root.append(
+      el("button", {
+        className: "pulsante pulsante-grande",
+        text: "Nuovo giocatore",
+        attrs: { type: "button" },
+        on: { click: () => ctx.navigate("/giocatori/nuovo") },
+      }),
+    );
+  }
   root.append(filtri);
   root.append(contatore);
   root.append(contenitore);

@@ -1168,6 +1168,14 @@ button {
   margin: 12px 0;
 }
 
+.editor-anteprima {
+  margin-top: 6px;
+}
+
+.editor-nota-spaziatura {
+  margin-top: 12px;
+}
+
 .editor-squadra {
   margin: 12px 0;
   padding: 10px;

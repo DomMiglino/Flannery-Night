@@ -27,6 +27,7 @@ import { separaMvp } from "../public/js/ui.js";
 import { fasciaOverall, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
 import { testoDoppio } from "../public/js/views/giocatori.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
+import { formatoOra, validaDatiGiocatore } from "../public/js/views/editor_giocatore.js";
 import { azioneAccount, impostaCollegato, isCollegato, prendiReturnTo, ricordaReturnTo, utenteCollegato, vociMenu } from "../public/js/state.js";
 import { readFileSync } from "node:fs";
 import { ROLE_WEIGHTS, overallForRole } from "../src/calc";
@@ -70,6 +71,11 @@ describe("percorsi", () => {
     expect(resolveRoute("/giocatori").name).toBe("giocatori");
     expect(resolveRoute("/partite").name).toBe("partite");
     expect(resolveRoute("/accesso").name).toBe("accesso");
+  });
+
+  it("risolve creazione e modifica giocatore nella sezione Giocatori", () => {
+    expect(resolveRoute("/giocatori/nuovo")).toMatchObject({ name: "giocatori", sotto: "nuovo" });
+    expect(resolveRoute("/giocatori/fake-uno/modifica")).toMatchObject({ name: "giocatori", modificaId: "fake-uno" });
   });
 
   it("la scheda del giocatore porta l'id, anche con caratteri speciali", () => {
@@ -291,6 +297,33 @@ describe("numeri e date", () => {
     expect(stepValue(50, 1)).toBe(51);
     expect(stepValue(99, 1)).toBe(99);
     expect(stepValue(1, -1)).toBe(1);
+  });
+});
+
+describe("form giocatore", () => {
+  const bandiere = [{ filename: "Italia.png", name: "Italia" }];
+  const dati = { name: "Giocatore", role: "CC", flag: "Italia.png", canLogin: true };
+
+  it("valida nome, ruolo, bandiera e accesso senza DOM", () => {
+    expect(validaDatiGiocatore(dati, bandiere)).toBeNull();
+    expect(validaDatiGiocatore({ ...dati, name: " " }, bandiere)).toContain("da 1 a 40");
+    expect(validaDatiGiocatore({ ...dati, name: "x".repeat(41) }, bandiere)).toContain("da 1 a 40");
+    expect(validaDatiGiocatore({ ...dati, role: "XX" }, bandiere)).toContain("ruolo");
+    expect(validaDatiGiocatore({ ...dati, flag: "altro.png" }, bandiere)).toContain("bandiera");
+    expect(validaDatiGiocatore({ ...dati, flag: "" }, bandiere)).toContain("bandiera");
+    expect(validaDatiGiocatore({ ...dati, canLogin: 1 }, bandiere)).toContain("accedere");
+  });
+
+  it("ammette una bandiera storica solo se invariata", () => {
+    expect(validaDatiGiocatore({ ...dati, flag: "vecchia.svg" }, bandiere, "vecchia.svg")).toBeNull();
+    expect(validaDatiGiocatore({ ...dati, flag: "altra.svg" }, bandiere, "vecchia.svg")).toContain("bandiera");
+    expect(validaDatiGiocatore({ ...dati, flag: "" }, bandiere, null)).toBeNull();
+  });
+
+  it("formatta l'ora del blocco e nasconde date non valide", () => {
+    expect(formatoOra("2026-10-05T12:34:00.000Z")).toMatch(/^\d{2}:\d{2}$/);
+    expect(formatoOra("non-valida")).toBe("");
+    expect(formatoOra(null)).toBe("");
   });
 });
 
