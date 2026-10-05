@@ -17,6 +17,8 @@ import {
   stagioneAttiva,
   stagioneCorrente,
   utenteCollegato,
+  azioneAccount,
+  vociMenu,
 } from "./state.js";
 import { activeNav, navItems, needsSeason, normalizePath, resolveRoute, seasonFromSearch, withSeason } from "./routes.js";
 import { renderAccesso, renderCambiaPin } from "./views/accesso.js";
@@ -119,13 +121,20 @@ function disegnaBarra(routeName) {
   }
 }
 
+const NODI_VOCI_MENU = {
+  "voce-cambia": "voceCambia",
+  "voce-accedi": "voceAccedi",
+  "voce-esci": "voceEsci",
+};
+
 function disegnaMenu() {
   const collegato = isCollegato();
   dom.menu.hidden = true;
   dom.pulsanteAccount.setAttribute("aria-expanded", "false");
-  dom.voceCambia.hidden = !collegato;
-  dom.voceEsci.hidden = !collegato;
-  dom.voceAccedi.hidden = collegato;
+  for (const voce of vociMenu(collegato)) {
+    const nodo = dom[NODI_VOCI_MENU[voce.id]];
+    if (nodo) nodo.hidden = !voce.visibile;
+  }
   const utente = utenteCollegato();
   dom.menuTitolo.textContent = collegato && utente ? utente.name : "Account";
 }
@@ -215,8 +224,8 @@ async function avvia() {
 
   linkInterno(dom.titoloSito, (href) => vai(href));
   dom.pulsanteAccount.addEventListener("click", () => {
-    // Senza accesso niente menu: si va diretti alla pagina di accesso.
-    if (!isCollegato()) {
+    // La decisione è presa al momento del tocco, mai prima.
+    if (azioneAccount(isCollegato()) === "accesso") {
       vai("/accesso");
       return;
     }

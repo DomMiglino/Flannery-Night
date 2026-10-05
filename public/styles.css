@@ -2,6 +2,13 @@
    Tema chiaro e scuro con le stesse variabili, nessuna risorsa esterna,
    nessuno stile in linea: tutto passa da qui. */
 
+/* L'attributo hidden nasconde sempre: senza questa regola le classi con
+   display (menu-voce, barra-voce, stagione-campo) lo ignorerebbero e le
+   voci nascoste resterebbero visibili. */
+[hidden] {
+  display: none !important;
+}
+
 :root {
   color-scheme: light dark;
   --sfondo: #f2f4f7;

@@ -25,7 +25,8 @@ import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
 import { testoRendimento } from "../public/js/views/classifica.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
-import { impostaCollegato, isCollegato, prendiReturnTo, ricordaReturnTo, utenteCollegato } from "../public/js/state.js";
+import { azioneAccount, impostaCollegato, isCollegato, prendiReturnTo, ricordaReturnTo, utenteCollegato, vociMenu } from "../public/js/state.js";
+import { readFileSync } from "node:fs";
 import { ROLE_WEIGHTS, overallForRole } from "../src/calc";
 
 interface SeiValori {
@@ -482,5 +483,35 @@ describe("etichette per ruolo", () => {
     expect(formatOverallUp(0)).toBe("0");
     expect(formatOverallUp(null)).toBe("—");
     expect(formatOverallUp(undefined)).toBe("—");
+  });
+});
+
+describe("icona e menu dell'account", () => {
+  it("non collegato: l'icona porta all'accesso; collegato: apre il menu", () => {
+    expect(azioneAccount(false)).toBe("accesso");
+    expect(azioneAccount(true)).toBe("menu");
+  });
+
+  it("collegato: menu con Cambia PIN ed Esci, senza Accedi", () => {
+    expect(vociMenu(true)).toEqual([
+      { id: "voce-cambia", visibile: true },
+      { id: "voce-accedi", visibile: false },
+      { id: "voce-esci", visibile: true },
+    ]);
+  });
+
+  it("non collegato: nessuna voce di menu per chi è dentro", () => {
+    expect(vociMenu(false)).toEqual([
+      { id: "voce-cambia", visibile: false },
+      { id: "voce-accedi", visibile: true },
+      { id: "voce-esci", visibile: false },
+    ]);
+  });
+
+  it("hidden nasconde davvero, anche dove l'autore imposta display", () => {
+    // Regressione punto B: .menu-voce { display: flex } vinceva sul
+    // display:none di [hidden] e "Accedi" restava visibile nel menu.
+    const css = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/);
   });
 });

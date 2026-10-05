@@ -40,6 +40,26 @@ export function utenteCollegato() {
   return stato.player;
 }
 
+/**
+ * Cosa fa l'icona dell'account al tocco: "accesso" diretto alla pagina
+ * di accesso, oppure "menu". Si decide al momento del tocco leggendo
+ * lo stato corrente, mai con un valore memorizzato prima.
+ */
+export function azioneAccount(collegato) {
+  return collegato ? "menu" : "accesso";
+}
+
+/**
+ * Voci del menu dell'account visibili per lo stato dato.
+ */
+export function vociMenu(collegato) {
+  return [
+    { id: "voce-cambia", visibile: collegato },
+    { id: "voce-accedi", visibile: !collegato },
+    { id: "voce-esci", visibile: collegato },
+  ];
+}
+
 export function impostaCollegato(player) {
   stato.player = player;
   avvisa();
