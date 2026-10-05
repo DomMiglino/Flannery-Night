@@ -25,14 +25,12 @@ import {
   navItems,
   needsSeason,
   normalizePath,
-  PERCORSO_GESTIONE,
   resolveRoute,
   seasonFromSearch,
   withSeason,
 } from "./routes.js";
 import { renderAccesso, renderCambiaPin } from "./views/accesso.js";
 import { renderClassifica } from "./views/classifica.js";
-import { renderCopilota } from "./views/copilota.js";
 import { renderGiocatori } from "./views/giocatori.js";
 import { renderHome } from "./views/home.js";
 import { renderPartite } from "./views/partite.js";
@@ -40,8 +38,6 @@ import { renderScheda } from "./views/scheda.js";
 
 const dom = {};
 let rendering = 0;
-/** Percorso della pagina di gestione, dal Worker (/api/config). */
-let percorsoGestione = PERCORSO_GESTIONE;
 
 function prendiElementi() {
   dom.contenuto = document.getElementById("contenuto");
@@ -77,11 +73,6 @@ function sessioneScaduta() {
   impostaCollegato(null);
   ricordaReturnTo(`${location.pathname}${location.search}`);
   vai("/accesso");
-}
-
-/** Dove si era diretti: serve per tornare alla gestione dopo l'accesso. */
-function percorsoRichiesto() {
-  return `${location.pathname}${location.search}`;
 }
 
 function navigate(path, { sostituisci = false } = {}) {
@@ -164,12 +155,8 @@ function apriMenu(apri) {
 // ---------- disegno della rotta ----------
 
 async function disegna() {
-  const scelta = resolveRoute(location.pathname, { authed: isCollegato(), search: location.search, gestione: percorsoGestione });
+  const scelta = resolveRoute(location.pathname, { authed: isCollegato(), search: location.search });
   if (scelta.redirect) {
-    // Chi apre la gestione senza accesso va all'accesso e poi torna lì.
-    if (normalizePath(location.pathname) === normalizePath(percorsoGestione)) {
-      ricordaReturnTo(percorsoRichiesto());
-    }
     vai(scelta.redirect, { sostituisci: true });
     return;
   }
@@ -196,10 +183,7 @@ async function disegna() {
         await renderScheda(dom.contenuto, ctx, scelta.playerId);
         break;
       case "partite":
-        await renderPartite(dom.contenuto, ctx);
-        break;
-      case "copilota":
-        await renderCopilota(dom.contenuto, ctx);
+        await renderPartite(dom.contenuto, ctx, scelta);
         break;
       case "cambia":
         await renderCambiaPin(dom.contenuto, ctx);
@@ -230,7 +214,6 @@ function titoloPagina(nome) {
   if (nome === "giocatori") return "Giocatori · Flannery Night";
   if (nome === "scheda") return "Giocatore · Flannery Night";
   if (nome === "partite") return "Partite · Flannery Night";
-  if (nome === "copilota") return "Partite · Flannery Night";
   if (nome === "cambia") return "Cambia PIN · Flannery Night";
   return "Accedi · Flannery Night";
 }
@@ -286,20 +269,10 @@ async function avvia() {
 
   ascolta(() => {
     // La barra e il menu cambiano quando l'accesso cambia.
-    const scelta = resolveRoute(location.pathname, { authed: isCollegato(), search: location.search, gestione: percorsoGestione });
+    const scelta = resolveRoute(location.pathname, { authed: isCollegato(), search: location.search });
     disegnaBarra(scelta.name);
     disegnaMenu();
   });
-
-  // Il percorso della gestione lo decide il Worker: si legge da /api/config.
-  try {
-    const cfg = await api.config();
-    if (cfg && typeof cfg.adminPath === "string" && cfg.adminPath.startsWith("/")) {
-      percorsoGestione = cfg.adminPath;
-    }
-  } catch {
-    // Senza rete resta il valore predefinito.
-  }
 
   // Primo controllo della sessione: 401 vuol dire ospite.
   try {
@@ -324,11 +297,8 @@ async function avvia() {
 
   // Se l'indirizzo corrente non va bene (per esempio /home da ospite)
   // resolveRoute rimanda al percorso giusto.
-  const iniziale = resolveRoute(location.pathname, { authed: isCollegato(), search: location.search, gestione: percorsoGestione });
+  const iniziale = resolveRoute(location.pathname, { authed: isCollegato(), search: location.search });
   if (iniziale.redirect) {
-    if (normalizePath(location.pathname) === normalizePath(percorsoGestione)) {
-      ricordaReturnTo(percorsoRichiesto());
-    }
     history.replaceState({}, "", withSeason(iniziale.redirect, stagioneCorrente()));
   }
   await disegna();

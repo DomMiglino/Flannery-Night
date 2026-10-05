@@ -1,4 +1,5 @@
-// Blocco 5a: gestione delle partite (area /copilota).
+// Gestione delle partite dentro la pagina Partite.
+// Solo partite 'published', sempre nella stagione attiva per le nuove.
 // Solo partite 'published', sempre nella stagione attiva per le nuove.
 // Ogni scrittura avviene in un unico batch D1 (o tutto o niente) e
 // finisce nel registro, senza PIN né hash nei dettagli.

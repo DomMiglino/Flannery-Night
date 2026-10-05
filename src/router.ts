@@ -2,13 +2,13 @@
 // Ogni richiesta che modifica dati (POST, PUT, DELETE, PATCH) deve
 // avere l'header Origin sullo stesso host del sito, altrimenti 403.
 
-import { type Env, adminPath } from "./env";
-import { fail, json, MSG } from "./http";
-import { currentAdmin, currentPlayer, type AuthedPlayer } from "./session";
+import { type Env } from "./env";
+import { fail, MSG } from "./http";
+import { currentPlayer, type AuthedPlayer } from "./session";
 import { authPlayers, authStatus, createPin, login, logout } from "./routes/routes_auth";
 import { changePin, me, myVotes } from "./routes/routes_me";
 import { putVote } from "./routes/routes_votes";
-import { adminSession, auditTrail, resetPin, unlock } from "./routes/routes_admin";
+import { auditTrail, resetPin, unlock } from "./routes/routes_admin";
 import {
   creaPartita,
   dettaglioPartita,
@@ -43,10 +43,10 @@ async function requireSession(env: Env, request: Request): Promise<AuthedPlayer 
 async function requireAdmin(env: Env, request: Request): Promise<AuthedPlayer | Response> {
   const base = await currentPlayer(env, request);
   if (!base) return UNAUTHORIZED();
+  // Il permesso si legge dal database a ogni richiesta: se viene tolto,
+  // smette di funzionare subito anche con la sessione ancora aperta.
   if (base.player.is_admin !== 1) return FORBIDDEN();
-  const admin = await currentAdmin(env, request);
-  if (!admin) return FORBIDDEN();
-  return admin;
+  return base;
 }
 
 function isResponse(value: AuthedPlayer | Response): value is Response {
@@ -98,12 +98,6 @@ export async function handleApi(request: Request, env: Env, url: URL): Promise<R
   }
 
   if (head === "admin") {
-    if (method === "POST" && second === "session") {
-      const auth = await requireSession(env, request);
-      if (isResponse(auth)) return auth;
-      if (auth.player.is_admin !== 1) return FORBIDDEN();
-      return adminSession(env, auth, request);
-    }
     if (method === "POST" && second === "players" && parts[3] === "reset-pin") {
       const auth = await requireAdmin(env, request);
       return isResponse(auth) ? auth : resetPin(env, auth, decodeURIComponent(parts[2] ?? ""));
@@ -137,10 +131,6 @@ export async function handleApi(request: Request, env: Env, url: URL): Promise<R
       return NOT_FOUND();
     }
     return NOT_FOUND();
-  }
-
-  if (head === "config" && method === "GET" && parts.length === 1) {
-    return json({ adminPath: adminPath(env) });
   }
 
   if (head === "seasons" && method === "GET") return seasons(env);

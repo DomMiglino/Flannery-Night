@@ -1,14 +1,12 @@
-// PASSO 3: accesso con PIN, blocco, sessioni, PIN nuovo e area admin.
+// Accesso con PIN, blocco, sessioni, PIN nuovo e permesso di gestione.
 // Solo giocatori e PIN inventati.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
-  adminCookieFrom,
-  bothCookies,
+  forgeSessionCookie,
   PIN,
   sessionCookie,
   startServer,
-  type Reply,
   type TestServer,
 } from "./helpers/server";
 
@@ -37,18 +35,23 @@ async function auditRows(): Promise<Array<{ action: string; detail: string; acto
   return rows.results ?? [];
 }
 
-async function loginAntonio(): Promise<Reply> {
+async function loginAntonio() {
   return login("antonio", PIN.antonio);
 }
 
-async function loginAdminArea(): Promise<string> {
-  const session = await login("fake-otto", PIN.fakeOtto);
-  const area = await s.call("/api/admin/session", {
-    method: "POST",
-    body: { pin: PIN.fakeOtto },
-    cookie: `fn_session=${sessionCookie(session)}`,
-  });
-  return bothCookies({ cookies: [...session.cookies, ...area.cookies] } as Reply);
+/** Cookie di sessione di un giocatore, pronto per le rotte di gestione. */
+async function loginCookie(playerId: string, pin: string): Promise<string> {
+  const session = await login(playerId, pin);
+  expect(session.status).toBe(200);
+  return `fn_session=${sessionCookie(session)}`;
+}
+
+function maxAge(reply: { cookies: string[] }): number | null {
+  for (const raw of reply.cookies) {
+    const m = raw.match(/Max-Age=(\d+)/);
+    if (m) return Number(m[1]);
+  }
+  return null;
 }
 
 describe("accesso con PIN", () => {
@@ -127,7 +130,7 @@ describe("blocco per account", () => {
 
   it("sblocco immediato da parte di un admin", async () => {
     for (let i = 0; i < 5; i++) await login("antonio", "000000");
-    const cookies = await loginAdminArea();
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const res = await s.call("/api/admin/players/antonio/unlock", { method: "POST", cookie: cookies });
     expect(res.status).toBe(200);
     const after = await login("antonio", PIN.antonio);
@@ -269,27 +272,38 @@ describe("sessioni", () => {
   });
 });
 
-describe("area di amministrazione", () => {
-  it("le rotte chiedono entrambi i cookie", async () => {
-    const session = await login("fake-otto", PIN.fakeOtto);
-    const onlySession = `fn_session=${sessionCookie(session)}`;
-    expect((await s.call("/api/admin/audit", { cookie: onlySession })).status).toBe(403);
+describe("permesso di gestione dal database", () => {
+  it("le rotte chiedono login e permesso letto a ogni richiesta", async () => {
+    expect((await s.call("/api/admin/audit")).status).toBe(401);
+    const other = await loginCookie("fake-due", PIN.fakeDue);
+    expect((await s.call("/api/admin/audit", { cookie: other })).status).toBe(403);
+    expect((await s.call("/api/admin/players", { cookie: other })).status).toBe(403);
 
-    const area = await s.call("/api/admin/session", { method: "POST", body: { pin: PIN.fakeOtto }, cookie: onlySession });
-    expect(area.status).toBe(200);
-    const onlyAdmin = `fn_admin=${adminCookieFrom(area)}`;
-    expect((await s.call("/api/admin/audit", { cookie: onlyAdmin })).status).toBe(401);
-
-    const cookies = bothCookies({ cookies: [...session.cookies, ...area.cookies] } as Reply);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const audit = await s.call("/api/admin/audit", { cookie: cookies });
     expect(audit.status).toBe(200);
     expect(Array.isArray(audit.body.events)).toBe(true);
   });
 
-  it("un admin agisce su un altro admin e su se' stesso", async () => {
-    const session = await login("fake-otto", PIN.fakeOtto);
-    const area = await s.call("/api/admin/session", { method: "POST", body: { pin: PIN.fakeOtto }, cookie: `fn_session=${sessionCookie(session)}` });
-    const cookies = bothCookies({ cookies: [...session.cookies, ...area.cookies] } as Reply);
+  it("la riconferma separata non esiste più", async () => {
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
+    expect((await s.call("/api/admin/session", { method: "POST", body: { pin: PIN.fakeOtto }, cookie: cookies })).status).toBe(
+      404,
+    );
+  });
+
+  it("permesso tolto dal database: rifiutato subito con la sessione aperta", async () => {
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
+    expect((await s.call("/api/admin/audit", { cookie: cookies })).status).toBe(200);
+    await s.db.prepare("UPDATE players SET is_admin = 0 WHERE id = 'fake-otto'").run();
+    expect((await s.call("/api/admin/audit", { cookie: cookies })).status).toBe(403);
+    expect((await s.call("/api/admin/players", { cookie: cookies })).status).toBe(403);
+    // La sessione resta valida per il resto: solo il permesso è tolto.
+    expect((await s.call("/api/me", { cookie: cookies })).status).toBe(200);
+  });
+
+  it("un giocatore con il permesso agisce su un altro e su se' stesso", async () => {
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
 
     const missing = await s.call("/api/admin/players/fake-inesistente/unlock", { method: "POST", cookie: cookies });
     expect(missing.status).toBe(404);
@@ -297,7 +311,7 @@ describe("area di amministrazione", () => {
     expect(others.status).toBe(200);
     const self = await s.call("/api/admin/players/fake-otto/reset-pin", { method: "POST", cookie: cookies });
     expect(self.status).toBe(200);
-    // Il reset di se' stessi chiude anche la sessione dell'admin.
+    // Il reset di se' stessi chiude anche la propria sessione.
     expect((await s.call("/api/admin/audit", { cookie: cookies })).status).toBe(401);
   });
 
@@ -306,13 +320,7 @@ describe("area di amministrazione", () => {
     const cookie = `fn_session=${sessionCookie(antonio)}`;
     expect((await s.call("/api/me", { cookie })).status).toBe(200);
 
-    const adminSession = await login("fake-otto", PIN.fakeOtto);
-    const area = await s.call("/api/admin/session", {
-      method: "POST",
-      body: { pin: PIN.fakeOtto },
-      cookie: `fn_session=${sessionCookie(adminSession)}`,
-    });
-    const cookies = bothCookies({ cookies: [...adminSession.cookies, ...area.cookies] } as Reply);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const reset = await s.call("/api/admin/players/antonio/reset-pin", { method: "POST", cookie: cookies });
     expect(reset.status).toBe(200);
 
@@ -336,35 +344,57 @@ describe("area di amministrazione", () => {
     expect(created.status).toBe(200);
   });
 
-  it("non admin non entra nell'area", async () => {
+  it("chi non ha il permesso non entra", async () => {
     const session = await login("fake-due", PIN.fakeDue);
-    const res = await s.call("/api/admin/session", {
-      method: "POST",
-      body: { pin: PIN.fakeDue },
-      cookie: `fn_session=${sessionCookie(session)}`,
-    });
+    const res = await s.call("/api/admin/audit", { cookie: `fn_session=${sessionCookie(session)}` });
     expect(res.status).toBe(403);
   });
+});
 
-  it("PIN sbagliato per l'area conta nel blocco da 30 minuti", async () => {
-    const session = await login("fake-otto", PIN.fakeOtto);
-    for (let i = 0; i < 4; i++) {
-      const res = await s.call("/api/admin/session", {
-        method: "POST",
-        body: { pin: "000000" },
-        cookie: `fn_session=${sessionCookie(session)}`,
-      });
-      expect(res.status).toBe(401);
-    }
-    // Il quinto errore blocca: da qui in poi 423.
-    const fifth = await s.call("/api/admin/session", {
-      method: "POST",
-      body: { pin: "000000" },
-      cookie: `fn_session=${sessionCookie(session)}`,
-    });
-    expect(fifth.status).toBe(423);
-    const cred = await s.first<{ locked_until: string }>("SELECT locked_until FROM credentials WHERE player_id = 'fake-otto'");
-    expect((Date.parse(cred.locked_until) - Date.now()) / 60_000).toBeGreaterThan(29.5);
+describe("durata della sessione", () => {
+  const GIORNO = 86_400;
+
+  async function versione(playerId: string): Promise<number> {
+    const cred = await s.first<{ session_version: number }>("SELECT session_version FROM credentials WHERE player_id = ?", playerId);
+    return cred.session_version;
+  }
+
+  it("/api/me dice isAdmin senza altri campi riservati", async () => {
+    const admin = await s.call("/api/me", { cookie: await loginCookie("antonio", PIN.antonio) });
+    expect(admin.body).toEqual({ id: "antonio", name: "Fake Antonio", role: "CC", isAdmin: true });
+    const other = await s.call("/api/me", { cookie: await loginCookie("fake-due", PIN.fakeDue) });
+    expect(other.body).toEqual({ id: "fake-due", name: "Fake Due", role: "DC", isAdmin: false });
+  });
+
+  it("cookie nuovi: 14 giorni per la gestione, 90 per gli altri", async () => {
+    expect(maxAge(await login("antonio", PIN.antonio))).toBe(14 * GIORNO);
+    expect(maxAge(await login("fake-due", PIN.fakeDue))).toBe(90 * GIORNO);
+  });
+
+  it("gestione con token emesso 13 giorni fa: ok; 15 giorni fa: 401", async () => {
+    const ora = Math.floor(Date.now() / 1000);
+    const v = await versione("fake-otto");
+    const fresco = forgeSessionCookie("fake-otto", v, ora - 13 * GIORNO, ora - 13 * GIORNO + 90 * GIORNO);
+    expect((await s.call("/api/me", { cookie: fresco })).status).toBe(200);
+    expect((await s.call("/api/admin/audit", { cookie: fresco })).status).toBe(200);
+    const vecchio = forgeSessionCookie("fake-otto", v, ora - 15 * GIORNO, ora - 15 * GIORNO + 90 * GIORNO);
+    expect((await s.call("/api/me", { cookie: vecchio })).status).toBe(401);
+  });
+
+  it("altri giocatori con token di 15 giorni: ancora ok", async () => {
+    const ora = Math.floor(Date.now() / 1000);
+    const v = await versione("fake-due");
+    const cookie = forgeSessionCookie("fake-due", v, ora - 15 * GIORNO, ora - 15 * GIORNO + 90 * GIORNO);
+    expect((await s.call("/api/me", { cookie })).status).toBe(200);
+  });
+
+  it("permesso assegnato dopo l'emissione: il limite vale lo stesso", async () => {
+    const ora = Math.floor(Date.now() / 1000);
+    const v = await versione("fake-due");
+    const cookie = forgeSessionCookie("fake-due", v, ora - 15 * GIORNO, ora - 15 * GIORNO + 90 * GIORNO);
+    expect((await s.call("/api/me", { cookie })).status).toBe(200);
+    await s.db.prepare("UPDATE players SET is_admin = 1 WHERE id = 'fake-due'").run();
+    expect((await s.call("/api/me", { cookie })).status).toBe(401);
   });
 });
 
@@ -415,13 +445,7 @@ describe("protezione CSRF", () => {
 describe("audit", () => {
   it("traccia senza PIN, salt o hash", async () => {
     for (let i = 0; i < 5; i++) await login("antonio", "000000");
-    const adminSession = await login("fake-otto", PIN.fakeOtto);
-    const area = await s.call("/api/admin/session", {
-      method: "POST",
-      body: { pin: PIN.fakeOtto },
-      cookie: `fn_session=${sessionCookie(adminSession)}`,
-    });
-    const cookies = bothCookies({ cookies: [...adminSession.cookies, ...area.cookies] } as Reply);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     await s.call("/api/admin/players/fake-otto/unlock", { method: "POST", cookie: cookies });
 
     const rows = await auditRows();

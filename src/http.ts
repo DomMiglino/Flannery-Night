@@ -92,10 +92,6 @@ export function sessionCookie(token: string, maxAgeSeconds: number): string {
   return `fn_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
 }
 
-export function adminCookie(token: string, maxAgeSeconds: number): string {
-  return `fn_admin=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
-}
-
 export function clearCookie(name: string): string {
   return `${name}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }

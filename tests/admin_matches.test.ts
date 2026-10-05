@@ -1,8 +1,11 @@
-// Blocco 5a: gestione delle partite con i trigger Guidinha veri caricati.
-// Solo dati inventati dai fixture.
+// Gestione delle partite dentro la pagina Partite, con i trigger Guidinha
+// veri caricati. Solo dati inventati dai fixture.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { bothCookies, PIN, sessionCookie, startServer, type Reply, type TestServer } from "./helpers/server";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { PIN, sessionCookie, startServer, type TestServer } from "./helpers/server";
 
 let s: TestServer;
 
@@ -18,16 +21,10 @@ beforeEach(async () => {
   await s.reset();
 });
 
-async function loginBoth(playerId: string, pin: string): Promise<string> {
+async function loginCookie(playerId: string, pin: string): Promise<string> {
   const session = await s.call("/api/auth/login", { method: "POST", body: { playerId, pin } });
   expect(session.status).toBe(200);
-  const area = await s.call("/api/admin/session", {
-    method: "POST",
-    body: { pin },
-    cookie: `fn_session=${sessionCookie(session)}`,
-  });
-  expect(area.status).toBe(200);
-  return bothCookies({ cookies: [...session.cookies, ...area.cookies] } as Reply);
+  return `fn_session=${sessionCookie(session)}`;
 }
 
 const A5 = ["antonio", "fake-uno", "fake-tre", "fake-quattro", "fake-cinque"];
@@ -53,42 +50,49 @@ function corpo(mod: Record<string, unknown> = {}) {
   };
 }
 
-describe("accesso all'area partite", () => {
-  it("serve la sessione e la riconferma, anche per leggere", async () => {
+describe("accesso alla gestione", () => {
+  it("serve il login; senza permesso è rifiutato", async () => {
     expect((await s.call("/api/admin/matches")).status).toBe(401);
-    const session = await s.call("/api/auth/login", { method: "POST", body: { playerId: "fake-otto", pin: PIN.fakeOtto } });
+    const session = await s.call("/api/auth/login", { method: "POST", body: { playerId: "fake-due", pin: PIN.fakeDue } });
     expect((await s.call("/api/admin/matches", { cookie: `fn_session=${sessionCookie(session)}` })).status).toBe(403);
   });
 
-  it("chi non gestisce la squadra non vede nulla di utile", async () => {
-    const cookies = await loginBoth("fake-due", PIN.fakeDue).catch(() => null);
-    expect(cookies).toBeNull();
-    const session = await s.call("/api/auth/login", { method: "POST", body: { playerId: "fake-due", pin: PIN.fakeDue } });
-    const area = await s.call("/api/admin/session", {
-      method: "POST",
-      body: { pin: PIN.fakeDue },
-      cookie: `fn_session=${sessionCookie(session)}`,
-    });
-    expect(area.status).toBe(403);
-    expect((await s.call("/api/admin/matches", { cookie: `fn_session=${sessionCookie(session)}` })).status).toBe(403);
+  it("permesso tolto: anche le scritture sono rifiutate subito", async () => {
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
+    expect((await s.call("/api/admin/matches", { method: "POST", body: corpo(), cookie: cookies })).status).toBe(201);
+    await s.db.prepare("UPDATE players SET is_admin = 0 WHERE id = 'fake-otto'").run();
+    expect((await s.call("/api/admin/matches", { method: "POST", body: corpo(), cookie: cookies })).status).toBe(403);
   });
 
   it("senza Origin le scritture sono rifiutate", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const res = await s.call("/api/admin/matches", { method: "POST", body: corpo(), cookie: cookies, origin: null });
     expect(res.status).toBe(403);
   });
 
-  it("/api/config dice il percorso della gestione", async () => {
-    const res = await s.call("/api/config", { origin: null });
-    expect(res.status).toBe(200);
-    expect(res.body.adminPath).toBe("/copilota");
+  it("nessun percorso dedicato nel codice", async () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    for (const file of [
+      "wrangler.toml",
+      "src/env.ts",
+      "src/router.ts",
+      "src/session.ts",
+      "src/worker.ts",
+      "public/js/routes.js",
+      "public/js/api.js",
+      "public/js/app.js",
+      "tests/helpers/server.ts",
+    ]) {
+      const testo = readFileSync(join(root, file), "utf-8");
+      expect(testo, file).not.toContain("ADMIN_PATH");
+      expect(testo, file).not.toContain("/copilota");
+    }
   });
 });
 
 describe("elenco e dettaglio", () => {
   it("stagione attiva di default, dalla più recente, con formato e risultato", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const res = await s.call("/api/admin/matches", { cookie: cookies });
     expect(res.status).toBe(200);
     expect(res.body.season).toMatchObject({ id: 1, editable: true });
@@ -99,7 +103,7 @@ describe("elenco e dettaglio", () => {
   });
 
   it("dettaglio completo per l'editor", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const res = await s.call("/api/admin/matches/fake-m1", { cookie: cookies });
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ id: "fake-m1", date: "2026-09-04", format: 5, editable: true });
@@ -113,7 +117,7 @@ describe("elenco e dettaglio", () => {
   });
 
   it("partita inesistente: 404 in italiano", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const res = await s.call("/api/admin/matches/non-esiste", { cookie: cookies });
     expect(res.status).toBe(404);
     expect(res.body.error).toBe("Partita non trovata");
@@ -122,7 +126,7 @@ describe("elenco e dettaglio", () => {
 
 describe("creazione", () => {
   it("salva subito pubblicata con risultato ufficiale del server", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const res = await s.call("/api/admin/matches", { method: "POST", body: corpo(), cookie: cookies });
     expect(res.status).toBe(201);
     expect(res.body.result).toBe("A 2 - B 0");
@@ -139,7 +143,7 @@ describe("creazione", () => {
   });
 
   it("ogni partita entra subito in classifica", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     await s.call("/api/admin/matches", { method: "POST", body: corpo(), cookie: cookies });
     const ranking = await s.call("/api/ranking", { origin: null });
     const antonio = ranking.body.rows.find((r: { id: string }) => r.id === "antonio");
@@ -147,7 +151,7 @@ describe("creazione", () => {
   });
 
   it("date libere nel passato e più partite lo stesso giorno", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     for (const ora of ["2020-01-01", "2020-01-01"]) {
       const res = await s.call("/api/admin/matches", { method: "POST", body: corpo({ date: ora }), cookie: cookies });
       expect(res.status).toBe(201);
@@ -160,14 +164,14 @@ describe("creazione", () => {
     [{ format: 7 }, "Il formato deve essere 5, 6 o 8"],
     [{ format: 6 }, "La squadra A deve avere 6 giocatori"],
   ])("validazione %j: %s", async (mod, messaggio) => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const res = await s.call("/api/admin/matches", { method: "POST", body: corpo(mod), cookie: cookies });
     expect(res.status).toBe(400);
     expect(res.body.error).toContain(messaggio);
   });
 
   it("niente giocatori ripetuti o in entrambe le squadre", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const teamB = squadra(B5);
     teamB[0] = { ...teamB[0], playerId: "antonio" };
     const res = await s.call("/api/admin/matches", { method: "POST", body: corpo({ teamB }), cookie: cookies });
@@ -176,7 +180,7 @@ describe("creazione", () => {
   });
 
   it("i giocatori devono esistere", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const teamA = squadra(A5);
     teamA[0] = { ...teamA[0], playerId: "fantasma" };
     const res = await s.call("/api/admin/matches", {
@@ -189,7 +193,7 @@ describe("creazione", () => {
   });
 
   it("gol e autogol interi da 0 a 99", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const teamA = squadra(A5);
     teamA[0] = { ...teamA[0], goals: 100 };
     expect((await s.call("/api/admin/matches", { method: "POST", body: corpo({ teamA }), cookie: cookies })).status).toBe(400);
@@ -201,7 +205,7 @@ describe("creazione", () => {
   });
 
   it("Guidinha: testo obbligatorio e giocatore in partita", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const vuoto = await s.call("/api/admin/matches", {
       method: "POST",
       body: corpo({ guidinha: { playerId: "antonio", text: "  " } }),
@@ -223,7 +227,7 @@ describe("creazione", () => {
   });
 
   it("più MVP per squadra ammessi e tutti i giocatori selezionabili", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const teamA = squadra(A5, {}, ["antonio", "fake-uno"]);
     teamA[4] = { ...teamA[4], playerId: "fake-esterno" };
     const res = await s.call("/api/admin/matches", {
@@ -237,7 +241,7 @@ describe("creazione", () => {
 
 describe("modifica", () => {
   it("sostituisce i dati e registra prima e dopo", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const creato = await s.call("/api/admin/matches", { method: "POST", body: corpo(), cookie: cookies });
     const id = creato.body.id;
     const dopo = corpo({ date: "2026-10-04", guidinha: { playerId: "fake-uno", text: "Nuovo testo" } });
@@ -257,7 +261,7 @@ describe("modifica", () => {
   });
 
   it("toglie dalla partita il giocatore con la Guidinha e la sposta", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const creato = await s.call("/api/admin/matches", { method: "POST", body: corpo(), cookie: cookies });
     const id = creato.body.id;
     // Antonio esce, entra fake-esterno; la Guidinha passa a fake-uno.
@@ -276,7 +280,7 @@ describe("modifica", () => {
   });
 
   it("stagione chiusa: sola lettura", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const res = await s.call("/api/admin/matches/" + encodeURIComponent("fake-m1"), {
       method: "PUT",
       body: corpo(),
@@ -299,7 +303,7 @@ describe("modifica", () => {
 
 describe("eliminazione", () => {
   it("elimina partita con Guidinha e righe collegate, con copia nel registro", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const creato = await s.call("/api/admin/matches", { method: "POST", body: corpo(), cookie: cookies });
     const id = creato.body.id;
     const res = await s.call("/api/admin/matches/" + encodeURIComponent(id), { method: "DELETE", cookie: cookies });
@@ -316,7 +320,7 @@ describe("eliminazione", () => {
   });
 
   it("stagione chiusa: eliminazione rifiutata", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     await s.db.prepare("UPDATE matches SET season_id = 2 WHERE id = 'fake-m1'").run();
     const res = await s.call("/api/admin/matches/" + encodeURIComponent("fake-m1"), { method: "DELETE", cookie: cookies });
     expect(res.status).toBe(409);
@@ -325,7 +329,7 @@ describe("eliminazione", () => {
   });
 
   it("senza dati a metà: tutto o niente", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const prima = await s.db.prepare("SELECT COUNT(*) AS n FROM matches").first<{ n: number }>();
     const teamA = squadra(A5);
     teamA[0] = { ...teamA[0], playerId: "fantasma" };
@@ -338,7 +342,7 @@ describe("eliminazione", () => {
 
 describe("giocatori per l'editor e registro", () => {
   it("elenca tutti i giocatori senza dati riservati", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     const res = await s.call("/api/admin/players", { cookie: cookies, origin: null });
     expect(res.status).toBe(200);
     const ids = res.body.players.map((p: { id: string }) => p.id);
@@ -348,7 +352,7 @@ describe("giocatori per l'editor e registro", () => {
   });
 
   it("il registro non contiene PIN né hash", async () => {
-    const cookies = await loginBoth("fake-otto", PIN.fakeOtto);
+    const cookies = await loginCookie("fake-otto", PIN.fakeOtto);
     await s.call("/api/admin/matches", { method: "POST", body: corpo(), cookie: cookies });
     const trail = await s.call("/api/admin/audit", { cookie: cookies });
     const azioni = trail.body.events.map((e: { action: string }) => e.action);

@@ -11,6 +11,8 @@ const stato = {
   seasonId: null,
   /** Pagina da riprendere dopo un accesso scaduto. */
   returnTo: null,
+  /** Breve conferma da mostrare una volta sola (dopo salva/elimina). */
+  avviso: null,
 };
 
 const ascoltatori = new Set();
@@ -77,6 +79,17 @@ export function ricordaReturnTo(path) {
 export function prendiReturnTo() {
   const value = stato.returnTo;
   stato.returnTo = null;
+  return value;
+}
+
+/** Conferma da mostrare all'archivio dopo un salvataggio o un'eliminazione. */
+export function lasciaAvviso(testo) {
+  stato.avviso = testo || null;
+}
+
+export function prendiAvviso() {
+  const value = stato.avviso;
+  stato.avviso = null;
   return value;
 }
 

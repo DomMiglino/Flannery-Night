@@ -1,33 +1,12 @@
-// PASSO 3: rotte dell'area amministrazione.
-// Servono entrambi i cookie (giocatore + area) e valgono anche per
-// l'admin che agisce su se' stesso. Nessun PIN o hash nei dettagli.
+// Rotte di gestione: serve il login normale e il permesso letto dal
+// database (players.is_admin) a ogni richiesta. Valgono anche per chi
+// agisce su se' stesso. Nessun PIN o hash nei dettagli.
 
 import { audit } from "../audit";
 import type { Env } from "../env";
-import { fail, json, MSG, readJsonObject, str, withCookie } from "../http";
-import { getCredential, getPlayerAny } from "../queries";
-import { verifyWithLocking } from "../pinflow";
+import { fail, json, MSG } from "../http";
+import { getPlayerAny } from "../queries";
 import type { AuthedPlayer } from "../session";
-import { adminCookieHeader, issueAdminSession } from "../session";
-
-/** Accesso all'area: il PIN viene richiesto di nuovo, conta nel blocco. */
-export async function adminSession(env: Env, auth: AuthedPlayer, request: Request): Promise<Response> {
-  const body = await readJsonObject(request);
-  if (!body) return fail(400, MSG.badRequest);
-  const pin = str(body, "pin");
-  if (!/^\d{6}$/.test(pin)) return fail(400, MSG.badRequest);
-
-  const cred = await getCredential(env, auth.player.id);
-  if (!cred || cred.pin_origin === "" || cred.pin_hash === "") return fail(401, MSG.unauthorized);
-
-  const check = await verifyWithLocking(env, auth.player, cred, pin);
-  if (!check.ok) {
-    return check.reason === "locked" ? fail(423, check.message) : fail(401, MSG.pinInvalid);
-  }
-  const token = await issueAdminSession(env, auth.player.id, auth.sessionVersion);
-  await audit(env, auth.player.id, "admin_session");
-  return withCookie(json({ ok: true }), adminCookieHeader(token));
-}
 
 /** Azzera PIN, tentativi e blocco, e chiude le sessioni aperte. */
 export async function resetPin(env: Env, auth: AuthedPlayer, targetId: string): Promise<Response> {

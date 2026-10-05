@@ -12,7 +12,6 @@ export type AuditAction =
   | "pin_upgraded"
   | "reset_pin"
   | "unlock"
-  | "admin_session"
   | "match_create"
   | "match_update"
   | "match_delete";

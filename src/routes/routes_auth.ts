@@ -7,7 +7,7 @@ import { fail, json, MSG, readJsonObject, str, withCookie } from "../http";
 import { isValidPin } from "../pin";
 import { storePinV2, upgradeToV2, verifyWithLocking } from "../pinflow";
 import { getCredential, getPlayer, listPlayers } from "../queries";
-import { clearAdminHeader, clearSessionHeader, issueSession, sessionCookieHeader } from "../session";
+import { ADMIN_DAYS, SESSION_DAYS, clearSessionHeader, issueSession, sessionCookieHeader } from "../session";
 
 function hasPin(cred: { pin_origin: string; pin_hash: string } | null): boolean {
   return !!cred && cred.pin_origin !== "" && cred.pin_hash !== "";
@@ -45,8 +45,9 @@ export async function createPin(env: Env, request: Request): Promise<Response> {
   // La versione di sessione puo' essere > 0 (per esempio dopo un reset
   // del PIN): il cookie deve usare quella, altrimenti /api/me risponde 401.
   const fresh = await getCredential(env, player.id);
-  const token = await issueSession(env, player.id, fresh?.session_version ?? 0);
-  return withCookie(json({ ok: true, id: player.id }), sessionCookieHeader(token));
+  const days = player.is_admin === 1 ? ADMIN_DAYS : SESSION_DAYS;
+  const token = await issueSession(env, player.id, fresh?.session_version ?? 0, days);
+  return withCookie(json({ ok: true, id: player.id }), sessionCookieHeader(token, days));
 }
 
 export async function login(env: Env, request: Request): Promise<Response> {
@@ -71,13 +72,11 @@ export async function login(env: Env, request: Request): Promise<Response> {
     await audit(env, player.id, "pin_upgraded", "v1 -> v2");
   }
   const current = await getCredential(env, player.id);
-  const token = await issueSession(env, player.id, current?.session_version ?? 0);
-  return withCookie(json({ ok: true, id: player.id }), sessionCookieHeader(token));
+  const days = player.is_admin === 1 ? ADMIN_DAYS : SESSION_DAYS;
+  const token = await issueSession(env, player.id, current?.session_version ?? 0, days);
+  return withCookie(json({ ok: true, id: player.id }), sessionCookieHeader(token, days));
 }
 
 export async function logout(env: Env): Promise<Response> {
-  let response = json({ ok: true });
-  response = withCookie(response, clearSessionHeader());
-  response = withCookie(response, clearAdminHeader());
-  return response;
+  return withCookie(json({ ok: true }), clearSessionHeader());
 }

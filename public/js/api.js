@@ -66,9 +66,7 @@ export const api = {
   changePin: (current, next, nextConfirm) =>
     request("/api/me/pin", { method: "POST", body: { current, new: next, newConfirm: nextConfirm } }),
 
-  // pagina di gestione (percorso da /api/config)
-  config: () => request("/api/config"),
-  confermaPin: (pin) => request("/api/admin/session", { method: "POST", body: { pin } }),
+  // strumenti di gestione (solo con permesso, la sicurezza resta sul server)
   giocatoriEditor: () => request("/api/admin/players"),
   partiteGestione: (season) => request(`/api/admin/matches${season ? `?season=${encodeURIComponent(season)}` : ""}`),
   partitaGestione: (id) => request(`/api/admin/matches/${encodeURIComponent(id)}`),

@@ -9,6 +9,7 @@ import { mkdirSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHmac } from "node:crypto";
 import { validateAndBuild } from "../../migration/build.mjs";
 import { hashV1, newPinHash } from "../../src/pin";
 import { splitSql } from "./sql";
@@ -118,13 +119,22 @@ export function sessionCookie(reply: Reply): string | null {
   return cookieValue(reply.cookies, "fn_session");
 }
 
-export function adminCookieFrom(reply: Reply): string | null {
-  return cookieValue(reply.cookies, "fn_admin");
+/**
+ * Token di sessione firmato a mano, con emissione e scadenza scelte dal
+ * test (stesso formato del Worker). Serve per le prove sulla durata.
+ */
+export function forgeSessionToken(playerId: string, version: number, issuedAtSec: number, expiresAtSec: number): string {
+  const body = Buffer.from(JSON.stringify({ p: playerId, v: version, i: issuedAtSec, e: expiresAtSec, k: "s" }))
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  const sig = createHmac("sha256", SESSION_SECRET).update(`fn.${body}`).digest("hex");
+  return `${body}.${sig}`;
 }
 
-/** Cookie di sessione + cookie area, da usare sulle rotte di amministrazione. */
-export function bothCookies(reply: Reply): string {
-  return `fn_session=${sessionCookie(reply)}; fn_admin=${adminCookieFrom(reply)}`;
+export function forgeSessionCookie(playerId: string, version: number, issuedAtSec: number, expiresAtSec: number): string {
+  return `fn_session=${forgeSessionToken(playerId, version, issuedAtSec, expiresAtSec)}`;
 }
 
 async function applyCredentials(db: D1Database): Promise<void> {
@@ -181,7 +191,6 @@ export async function startServer(): Promise<TestServer> {
     bindings: {
       PIN_PEPPER: PEPPER,
       SESSION_SECRET: SESSION_SECRET,
-      ADMIN_PATH: "/copilota",
     },
   });
   const db = (await mf.getD1Database("DB")) as unknown as D1Database;

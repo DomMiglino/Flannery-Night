@@ -8,10 +8,6 @@ database_name = "flannery-night-v2"
 database_id = "102b9aa6-301b-4482-a9a7-e0165c99563d"
 migrations_dir = "migrations"
 
-[vars]
-# Percorso della pagina di gestione (blocco 5a).
-ADMIN_PATH = "/copilota"
-
 [assets]
 directory = "./public"
 binding = "ASSETS"
@@ -20,5 +16,5 @@ binding = "ASSETS"
 not_found_handling = "single-page-application"
 # Il Worker gira per primo su OGNI richiesta (anche gli asset): così le
 # intestazioni di sicurezza arrivano su tutte le risposte, non solo sulle API.
-# Il Worker rimanda agli asset tutto ciò che non è /api/* né il percorso riservato.
+# Il Worker rimanda agli asset tutto ciò che non è /api/*.
 run_worker_first = true

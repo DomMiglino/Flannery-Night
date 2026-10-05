@@ -1132,54 +1132,43 @@ button {
   color: var(--testo-2);
 }
 
-/* ---------- gestione partite (pagina /copilota, una sezione: Partite) ---------- */
+/* ---------- strumenti di gestione dentro Partite ---------- */
 
-.copilota-riga {
+/* Riga discreta sotto la scheda: solo con il permesso, invariata per gli altri. */
+.partita-strumenti {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 56px;
-  padding: 10px 12px;
-  background: var(--superficie);
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--bordo);
+}
+
+.tasto-modifica {
+  min-height: 44px;
+  padding: 10px 16px;
+  background: none;
   border: 1px solid var(--bordo);
-  border-radius: var(--raggio);
-  color: inherit;
+  border-radius: 10px;
+  color: var(--testo-2);
   font: inherit;
-  text-align: left;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 
-.copilota-riga:active {
+.tasto-modifica:active {
   background: var(--superficie-2);
 }
 
-.elenco > li {
-  margin-bottom: 8px;
-}
+/* ---------- editor della partita ---------- */
 
-.copilota-riga-data {
-  flex: 0 0 auto;
-  color: var(--testo-2);
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-.copilota-riga-risultato {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-.copilota-modulo {
+.editor-modulo {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin: 12px 0;
 }
 
-.copilota-squadra {
+.editor-squadra {
   margin: 12px 0;
   padding: 10px;
   background: var(--superficie);
@@ -1188,7 +1177,7 @@ button {
   min-width: 0;
 }
 
-.copilota-squadra-nome {
+.editor-squadra-nome {
   margin: 0 0 8px;
   color: var(--testo-2);
   font-size: 0.8rem;
@@ -1197,7 +1186,7 @@ button {
   letter-spacing: 0.05em;
 }
 
-.copilota-giocatore {
+.editor-giocatore {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1206,29 +1195,29 @@ button {
   min-width: 0;
 }
 
-.copilota-giocatore:last-of-type {
+.editor-giocatore:last-of-type {
   border-bottom: 0;
 }
 
-.copilota-nome {
+.editor-nome {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.copilota-passi {
+.editor-passi {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
 
-.copilota-misura {
+.editor-misura {
   color: var(--testo-2);
   font-size: 0.8rem;
   font-weight: 600;
 }
 
-.copilota-passo {
+.editor-passo {
   width: 44px;
   height: 44px;
   padding: 0;
@@ -1240,7 +1229,7 @@ button {
   cursor: pointer;
 }
 
-.copilota-numero {
+.editor-numero {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1254,7 +1243,7 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-.copilota-mvp {
+.editor-mvp {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1262,50 +1251,42 @@ button {
   cursor: pointer;
 }
 
-.copilota-mvp input {
+.editor-mvp input {
   width: 22px;
   height: 22px;
 }
 
-.copilota-togli {
+.editor-togli {
   align-self: flex-start;
   min-height: 44px;
 }
 
-.copilota-aggiunta {
+.editor-aggiunta {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
 }
 
-.copilota-aggiunta .pulsante {
+.editor-aggiungi {
   width: 100%;
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
 }
 
-.copilota-testo {
+.editor-testo {
   min-height: 88px;
   resize: vertical;
 }
 
-.copilota-anteprima {
+.editor-anteprima {
   font-weight: 600;
 }
 
-.copilota-elimina {
+.editor-elimina {
   margin-top: 8px;
   color: var(--negativo);
   border-color: currentColor;
-}
-
-@media (min-width: 480px) {
-  .copilota-aggiunta {
-    flex-direction: row;
-  }
-
-  .copilota-aggiunta .selezione {
-    flex: 1 1 auto;
-  }
 }
 
 /* ---------- barra in basso ---------- */

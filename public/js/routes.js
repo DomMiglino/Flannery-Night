@@ -10,11 +10,7 @@ export const VISTA = {
   home: "home",
   accesso: "accesso",
   cambia: "cambia",
-  copilota: "copilota",
 };
-
-/** Percorso della pagina di gestione (stesso valore di ADMIN_PATH). */
-export const PERCORSO_GESTIONE = "/copilota";
 
 /** Percorso iniziale: chi non è entrato va in classifica, chi è entrato in home. */
 export function homePath(authed) {
@@ -49,19 +45,13 @@ export function withSeason(pathname, season) {
 /**
  * Traduce un indirizzo in una vista.
  * Restituisce {redirect} quando l'indirizzo non va bene (per esempio /home
- * senza accesso), altrimenti {name, playerId, season}.
- * La pagina di gestione non sta nella barra: senza accesso rimanda
- * all'accesso (che poi torna qui), con accesso la vista decide in base
- * ai permessi (riconferma del PIN o messaggio breve).
+ * senza accesso), altrimenti {name, playerId, season} e, dentro Partite,
+ * {sotto: "nuova"} o {modificaId} per gli strumenti di gestione.
  */
-export function resolveRoute(pathname, { authed = false, search = "", gestione = PERCORSO_GESTIONE } = {}) {
+export function resolveRoute(pathname, { authed = false, search = "" } = {}) {
   const path = normalizePath(pathname);
   const season = seasonFromSearch(search);
   const resta = { authed, season };
-
-  if (path === normalizePath(gestione)) {
-    return authed ? { name: VISTA.copilota, season } : { redirect: "/accesso", season };
-  }
 
   if (path === "/") return { redirect: homePath(authed), season };
   // /home senza accesso va alla pagina di accesso, mai in classifica:
@@ -70,6 +60,14 @@ export function resolveRoute(pathname, { authed = false, search = "", gestione =
   if (path === "/classifica") return { name: VISTA.classifica, season };
   if (path === "/giocatori") return { name: VISTA.giocatori, season };
   if (path === "/partite") return { name: VISTA.partite, season };
+  if (path === "/partite/nuova") return { name: VISTA.partite, sotto: "nuova", season };
+  if (path.startsWith("/partite/")) {
+    const resto = safeDecode(path.slice("/partite/".length));
+    const modifica = resto.match(/^(.+)\/modifica$/);
+    if (modifica && modifica[1] !== "") return { name: VISTA.partite, modificaId: modifica[1], season };
+    // Sottopercorso sconosciuto: archivio normale, senza reindirizzamenti.
+    return { name: VISTA.partite, season };
+  }
   if (path === "/accesso/cambia") {
     return authed ? { name: VISTA.cambia, season } : { redirect: "/accesso", season };
   }
@@ -104,9 +102,8 @@ export function needsSeason(name) {
   return name === VISTA.classifica || name === VISTA.partite || name === VISTA.scheda;
 }
 
-/** La pagina di gestione non ha voce nella barra: niente evidenziato. */
+/** La voce della barra da segnare come corrente. */
 export function activeNav(routeName, playerId) {
   if (routeName === VISTA.scheda) return VISTA.giocatori;
-  if (routeName === VISTA.copilota) return null;
   return routeName;
 }

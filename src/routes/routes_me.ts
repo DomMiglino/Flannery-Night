@@ -9,7 +9,7 @@ import { isValidPin } from "../pin";
 import { storePinV2, verifyWithLocking } from "../pinflow";
 import { getCredential } from "../queries";
 import type { AuthedPlayer } from "../session";
-import { currentPlayer, issueSession, sessionCookieHeader } from "../session";
+import { ADMIN_DAYS, SESSION_DAYS, currentPlayer, issueSession, sessionCookieHeader } from "../session";
 import { ceilOverallForRole, overallForRole } from "../calc";
 
 export async function me(auth: AuthedPlayer): Promise<Response> {
@@ -44,8 +44,9 @@ export async function changePin(env: Env, auth: AuthedPlayer, request: Request):
   await storePinV2(env, auth.player.id, next);
   await audit(env, auth.player.id, "change_pin");
   const fresh = await getCredential(env, auth.player.id);
-  const token = await issueSession(env, auth.player.id, fresh?.session_version ?? auth.sessionVersion + 1);
-  return withCookie(json({ ok: true }), sessionCookieHeader(token));
+  const days = auth.player.is_admin === 1 ? ADMIN_DAYS : SESSION_DAYS;
+  const token = await issueSession(env, auth.player.id, fresh?.session_version ?? auth.sessionVersion + 1, days);
+  return withCookie(json({ ok: true }), sessionCookieHeader(token, days));
 }
 
 export async function myVotes(env: Env, auth: AuthedPlayer): Promise<Response> {
