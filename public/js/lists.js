@@ -21,6 +21,7 @@ export const MODI_ORDINE = ["overall-desc", "overall-asc", "nome"];
  * @property {string} [query]
  * @property {string} [role]
  * @property {Set<string>|null} [votati]
+ * @property {string|null} [io]
  */
 
 /**
@@ -63,18 +64,21 @@ function normalizza(testo) {
 
 /**
  * Filtra per nome, ruolo e per "solo chi non ho ancora votato".
- * La ricerca ignora accenti e maiuscole.
+ * Con il filtro "da votare" attivo non compare mai chi ha fatto
+ * l'accesso (non ci si può votare da soli). La ricerca ignora
+ * accenti e maiuscole.
  * @param {GiocatoreElenco[]} giocatori
  * @param {FiltroElenco} [filtro]
  * @returns {GiocatoreElenco[]}
  */
-export function filterPlayers(giocatori, { query = "", role = "", votati = null } = {}) {
+export function filterPlayers(giocatori, { query = "", role = "", votati = null, io = null } = {}) {
   const testo = normalizza(query);
   const mioInsieme = votati instanceof Set ? votati : null;
   return (giocatori || []).filter((g) => {
     if (role && g.role !== role) return false;
     if (testo !== "" && !normalizza(g.name).includes(testo)) return false;
     if (mioInsieme && mioInsieme.has(g.id)) return false;
+    if (mioInsieme && io && g.id === io) return false;
     return true;
   });
 }

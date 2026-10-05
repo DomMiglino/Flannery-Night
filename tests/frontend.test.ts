@@ -24,6 +24,8 @@ import { guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matc
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
 import { testoRendimento } from "../public/js/views/classifica.js";
+import { completaAccesso } from "../public/js/views/accesso.js";
+import { impostaCollegato, isCollegato, prendiReturnTo, ricordaReturnTo, utenteCollegato } from "../public/js/state.js";
 import { ROLE_WEIGHTS, overallForRole } from "../src/calc";
 
 interface SeiValori {
@@ -328,6 +330,21 @@ describe("elenco giocatori", () => {
     expect(filterPlayers(GIOCATORI, { votati } as any).map((g: any) => g.id)).toEqual(["b", "d"]);
   });
 
+  it("il filtro Da votare non mostra mai chi ha fatto l'accesso", () => {
+    const votati = new Set<string>();
+    expect(filterPlayers(GIOCATORI, { votati, io: "a" } as any).map((g: any) => g.id)).toEqual(["b", "c", "d"]);
+  });
+
+  it("chi ho già votato resta escluso anche insieme a me stesso", () => {
+    const votati = new Set(["c"]);
+    expect(filterPlayers(GIOCATORI, { votati, io: "a" } as any).map((g: any) => g.id)).toEqual(["b", "d"]);
+  });
+
+  it("senza il filtro Da votare il proprio nome resta visibile", () => {
+    expect(filterPlayers(GIOCATORI, { io: "a" } as any).map((g: any) => g.id)).toEqual(["a", "b", "c", "d"]);
+    expect(filterPlayers(GIOCATORI, {}).map((g: any) => g.id)).toEqual(["a", "b", "c", "d"]);
+  });
+
   it("in classifica ci sono solo chi ha giocato almeno una partita", () => {
     const righe = [
       { id: "a", played: 3 },
@@ -363,6 +380,43 @@ describe("partite", () => {
     expect(guidinhaLinea({ playerName: "Antonio", text: "  una frase  " })).toEqual({ nome: "Antonio", testo: "una frase" });
     expect(guidinhaLinea({ playerName: null, text: "qualcosa" })).toBe(null);
     expect(guidinhaLinea({ playerName: "Antonio", text: "" })).toEqual({ nome: "Antonio", testo: "" });
+  });
+});
+
+describe("stato dopo l'accesso", () => {
+  it("lo stato è aggiornato prima della navigazione", async () => {
+    impostaCollegato(null);
+    let collegatoAllaNavigazione: boolean | null = null;
+    const ctx = {
+      navigate: () => {
+        collegatoAllaNavigazione = isCollegato();
+      },
+    };
+    const fintoMe = { id: "a", name: "Antonio" };
+    const destino = await completaAccesso(ctx as any, async () => fintoMe);
+    expect(destino).toBe("/home");
+    expect(collegatoAllaNavigazione).toBe(true);
+    expect(utenteCollegato()).toEqual(fintoMe);
+    impostaCollegato(null);
+  });
+
+  it("dopo l'accesso si torna alla pagina da cui si veniva", async () => {
+    impostaCollegato(null);
+    ricordaReturnTo("/giocatori/x?stagione=1");
+    const visti: string[] = [];
+    const destino = await completaAccesso({ navigate: (p: string) => visti.push(p) } as any, async () => ({ id: "a" }));
+    expect(destino).toBe("/giocatori/x?stagione=1");
+    expect(visti).toEqual(["/giocatori/x?stagione=1"]);
+    expect(prendiReturnTo()).toBeNull();
+    impostaCollegato(null);
+  });
+
+  it("uscire azzera subito lo stato", () => {
+    impostaCollegato({ id: "a" } as any);
+    expect(isCollegato()).toBe(true);
+    impostaCollegato(null);
+    expect(isCollegato()).toBe(false);
+    expect(utenteCollegato()).toBeNull();
   });
 });
 

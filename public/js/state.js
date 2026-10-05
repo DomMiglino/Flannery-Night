@@ -32,6 +32,14 @@ export function isCollegato() {
   return stato.player !== null;
 }
 
+/**
+ * Il giocatore collegato, oppure null. Unica fonte dello stato:
+ * le viste leggono da qui, mai da copie locali.
+ */
+export function utenteCollegato() {
+  return stato.player;
+}
+
 export function impostaCollegato(player) {
   stato.player = player;
   avvisa();

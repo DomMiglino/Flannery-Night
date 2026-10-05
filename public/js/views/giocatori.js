@@ -112,10 +112,12 @@ export async function renderGiocatori(root, ctx) {
   function disegna() {
     const collegato = ctx.collegato();
     const votati = new Set(mioIndice.keys());
+    const io = collegato && ctx.me() ? ctx.me().id : null;
     let elencoGiocatori = filterPlayers(giocatori, {
       query: filtro.query,
       role: filtro.role,
       votati: filtro.soloDaVotare ? votati : null,
+      io,
     });
     // L'ordinamento usa il valore esatto; quello mostrato è per eccesso.
     elencoGiocatori = sortPlayers(elencoGiocatori, filtro.ordine);

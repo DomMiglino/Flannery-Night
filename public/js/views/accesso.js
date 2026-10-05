@@ -33,6 +33,20 @@ function avviso(classe = "nota-errore") {
   return el("p", { className: classe, attrs: { role: "status" } });
 }
 
+/**
+ * Dopo un login, una creazione o un cambio PIN riusciti: rilegge l'utente,
+ * aggiorna lo stato PRIMA di navigare e va a /home (o alla pagina da cui
+ * si veniva). Così la vista di destinazione trova subito lo stato giusto
+ * e non serve ricaricare.
+ */
+export async function completaAccesso(ctx, leggiMe = api.me) {
+  const me = await leggiMe();
+  impostaCollegato(me);
+  const destinazione = prendiReturnTo() || "/home";
+  ctx.navigate(destinazione, { sostituisci: true });
+  return destinazione;
+}
+
 export async function renderAccesso(root, ctx) {
   clear(root);
   const box = el("div", { className: "accesso" });
@@ -169,10 +183,7 @@ export async function renderAccesso(root, ctx) {
       try {
         if (haPin) await api.login(scelta.id, valore);
         else await api.createPin(scelta.id, valore, campi[1].querySelector("input").value);
-        const me = await api.me();
-        impostaCollegato(me);
-        const destinazione = prendiReturnTo() || "/home";
-        ctx.navigate(destinazione, { sostituisci: true });
+        await completaAccesso(ctx);
       } catch (erroreApi) {
         messaggio.className = "nota-errore";
         messaggio.textContent = erroreApi instanceof ApiError ? erroreApi.message : "Non riesco a completare l'accesso";
@@ -271,11 +282,9 @@ export async function renderCambiaPin(root, ctx) {
     messaggio.textContent = "Attendo…";
     try {
       await api.changePin(a, b, c);
-      const me = await api.me();
-      impostaCollegato(me);
       messaggio.className = "nota-ok";
       messaggio.textContent = "PIN cambiato.";
-      ctx.navigate("/home", { sostituisci: true });
+      await completaAccesso(ctx);
     } catch (erroreApi) {
       // Stesso caso del voto: se la sessione è scaduta si torna non
       // collegati e all'accesso, senza restare a metà schermata.

@@ -16,6 +16,7 @@ import {
   ricordaReturnTo,
   stagioneAttiva,
   stagioneCorrente,
+  utenteCollegato,
 } from "./state.js";
 import { activeNav, navItems, needsSeason, normalizePath, resolveRoute, seasonFromSearch, withSeason } from "./routes.js";
 import { renderAccesso, renderCambiaPin } from "./views/accesso.js";
@@ -53,18 +54,12 @@ const ctx = {
   root: null,
   navigate,
   collegato: isCollegato,
-  me: () => currentMe(),
+  me: () => utenteCollegato(),
   stagione: stagioneCorrente,
   sessioneScaduta,
 };
 
-let currentPlayer = null;
-function currentMe() {
-  return currentPlayer;
-}
-
 function sessioneScaduta() {
-  currentPlayer = null;
   impostaCollegato(null);
   ricordaReturnTo(`${location.pathname}${location.search}`);
   vai("/accesso");
@@ -131,7 +126,8 @@ function disegnaMenu() {
   dom.voceCambia.hidden = !collegato;
   dom.voceEsci.hidden = !collegato;
   dom.voceAccedi.hidden = collegato;
-  dom.menuTitolo.textContent = collegato && currentPlayer ? currentPlayer.name : "Account";
+  const utente = utenteCollegato();
+  dom.menuTitolo.textContent = collegato && utente ? utente.name : "Account";
 }
 
 function apriMenu(apri) {
@@ -232,7 +228,6 @@ async function avvia() {
     } catch {
       // Anche se la chiamata fallisce, la sessione locale va chiusa.
     }
-    currentPlayer = null;
     impostaCollegato(null);
     prendiReturnTo();
     apriMenu(false);
@@ -274,13 +269,11 @@ async function avvia() {
   }
 
   try {
-    currentPlayer = await api.me();
-    impostaCollegato(currentPlayer);
+    impostaCollegato(await api.me());
   } catch (erroreApi) {
     if (!(erroreApi instanceof ApiError) || erroreApi.status !== 401) {
       // Rete assente: si parte comunque come ospiti.
     }
-    currentPlayer = null;
     impostaCollegato(null);
   }
   impostaControllato();
