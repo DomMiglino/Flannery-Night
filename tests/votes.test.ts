@@ -137,6 +137,55 @@ describe("voto", () => {
     expect(other.body.votes.every((v: { targetId: string }) => v.targetId !== "fake-sei")).toBe(true);
   });
 
+  it("l'overall compare con un solo voto ricevuto", async () => {
+    const cookie = await asPlayer("antonio", PIN.antonio);
+    const fresh = await s.first<{ role: string }>("SELECT role FROM players WHERE id = 'fake-cinque'");
+    const res = await s.call("/api/votes/fake-cinque", { method: "PUT", cookie, body: VOTES });
+    expect(res.status).toBe(200);
+    expect(res.body.voters).toBe(1);
+    // Nessuna soglia: con un solo voto le mediane sono quei valori
+    // e l'overall esiste gia'.
+    expect(res.body.velTuf).toBe(40);
+    expect(res.body.overall).not.toBeNull();
+    expect(typeof res.body.overall).toBe("number");
+    expect(fresh.role).toBeTruthy();
+
+    const scheda = await s.call("/api/players/fake-cinque");
+    expect(scheda.body.votes).toBe(1);
+    expect(scheda.body.overall).toBe(res.body.overall);
+
+    const elenco = await s.call("/api/players");
+    const riga = elenco.body.players.find((p: { id: string }) => p.id === "fake-cinque");
+    expect(riga.overall).toBe(res.body.overall);
+  });
+
+  it("l'overall si aggiorna anche con due votanti", async () => {
+    const primo = await asPlayer("antonio", PIN.antonio);
+    const secondo = await asPlayer("fake-otto", PIN.fakeOtto);
+    const terzo = await asPlayer("fake-due", PIN.fakeDue);
+    // fake-cinque non ha voti nelle fixture: il conteggio parte da zero.
+    await s.call("/api/votes/fake-cinque", { method: "PUT", cookie: primo, body: { velTuf: 10, tirPre: 20, passRin: 30, driRif: 40, difRea: 50, fisPia: 60 } });
+    const res = await s.call("/api/votes/fake-cinque", {
+      method: "PUT",
+      cookie: secondo,
+      body: { velTuf: 50, tirPre: 60, passRin: 70, driRif: 80, difRea: 90, fisPia: 99 },
+    });
+    expect(res.body.voters).toBe(2);
+    expect(res.body.velTuf).toBe(30);
+    expect(res.body.fisPia).toBe(79.5);
+    expect(res.body.overall).not.toBeNull();
+
+    // Un terzo votante alza il conteggio e cambia le mediane.
+    const dopo = await s.call("/api/votes/fake-cinque", {
+      method: "PUT",
+      cookie: terzo,
+      body: { velTuf: 90, tirPre: 90, passRin: 90, driRif: 90, difRea: 90, fisPia: 90 },
+    });
+    expect(dopo.body.voters).toBe(3);
+    expect(dopo.body.velTuf).toBe(50);
+    expect(dopo.body.overall).not.toBeNull();
+  });
+
   it("la risposta non contiene i voti degli altri", async () => {
     const cookie = await asPlayer("antonio", PIN.antonio);
     const res = await s.call("/api/votes/fake-sette", { method: "PUT", cookie, body: VOTES });

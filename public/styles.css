@@ -1,0 +1,865 @@
+/* Flannery Night — passo 4: interfaccia pubblica.
+   Tema chiaro e scuro con le stesse variabili, nessuna risorsa esterna,
+   nessuno stile in linea: tutto passa da qui. */
+
+:root {
+  color-scheme: light dark;
+  --sfondo: #f2f4f7;
+  --superficie: #ffffff;
+  --superficie-2: #e8ecf2;
+  --bordo: #cfd6e0;
+  --testo: #131820;
+  --testo-2: #4d5766;
+  --accento: #1f5fd0;
+  --accento-testo: #ffffff;
+  --positivo: #17683a;
+  --negativo: #a32222;
+  --avviso: #8a4b00;
+  --ombra: 0 1px 2px rgba(16, 22, 32, 0.12);
+  --raggio: 12px;
+  --riga-min: 56px;
+  --barra-altezza: 60px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sfondo: #11151c;
+    --superficie: #1a2029;
+    --superficie-2: #232b36;
+    --bordo: #33404f;
+    --testo: #eef2f7;
+    --testo-2: #a7b3c2;
+    --accento: #7aa7ff;
+    --accento-testo: #0d1117;
+    --positivo: #6fd39b;
+    --negativo: #ff9b9b;
+    --avviso: #f0be6a;
+    --ombra: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--sfondo);
+  color: var(--testo);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  overflow-x: hidden;
+}
+
+.solo-lettori {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.salta {
+  position: absolute;
+  left: 8px;
+  top: -60px;
+  z-index: 40;
+  padding: 10px 14px;
+  background: var(--accento);
+  color: var(--accento-testo);
+  border-radius: 0 0 var(--raggio) var(--raggio);
+  text-decoration: none;
+}
+
+.salta:focus {
+  top: 0;
+}
+
+/* ---------- testata ---------- */
+
+.testata {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--bordo);
+}
+
+.testata-riga {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 6px 12px;
+}
+
+.marchio {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.testata-azioni {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.stagione-campo {
+  display: inline-flex;
+  align-items: center;
+}
+
+select,
+input,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.stagione {
+  min-height: 44px;
+  max-width: 44vw;
+  padding: 6px 8px;
+  background: var(--superficie-2);
+  color: var(--testo);
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+}
+
+.pulsante-icona {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--superficie-2);
+  border: 1px solid var(--bordo);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.pulsante-icona[aria-expanded="true"] {
+  background: var(--accento);
+  border-color: var(--accento);
+  color: var(--accento-testo);
+}
+
+.icona-giocatore {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.menu {
+  position: absolute;
+  right: 8px;
+  z-index: 25;
+  min-width: 200px;
+  padding: 8px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  box-shadow: var(--ombra);
+}
+
+.menu-titolo {
+  margin: 4px 8px 6px;
+  color: var(--testo-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.menu-voce {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 8px;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--testo);
+  font-size: 1rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menu-voce:hover,
+.menu-voce:focus-visible {
+  background: var(--superficie-2);
+}
+
+.menu-esci {
+  color: var(--negativo);
+}
+
+/* ---------- contenuto ---------- */
+
+.contenuto {
+  display: block;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 12px calc(var(--barra-altezza) + 28px);
+  min-height: 60vh;
+}
+
+.contenuto:focus {
+  outline: none;
+}
+
+.titolo-sezione {
+  margin: 4px 0 12px;
+  font-size: 1.35rem;
+}
+
+.titolo-gruppo {
+  margin: 20px 0 8px;
+  color: var(--testo-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nota {
+  margin: 6px 0;
+  color: var(--testo-2);
+  font-size: 0.9rem;
+}
+
+.nota-errore {
+  color: var(--negativo);
+  font-weight: 600;
+}
+
+.nota-ok {
+  color: var(--positivo);
+  font-weight: 600;
+}
+
+.nota-avviso {
+  color: var(--avviso);
+}
+
+/* ---------- liste ---------- */
+
+.elenco {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.voce {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--riga-min);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--bordo);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.voce:active {
+  background: var(--superficie-2);
+}
+
+.voce-griglia {
+  grid-template-columns: 30px 24px 1fr auto;
+}
+
+.voce-giocatori {
+  grid-template-columns: 24px 1fr auto;
+}
+
+.voce-testa {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.voce-nome {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voce-sottotitolo {
+  color: var(--testo-2);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voce-numeri {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.posizione {
+  color: var(--testo-2);
+  font-size: 0.9rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.punteggio {
+  min-width: 46px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.punteggio-mio {
+  color: var(--testo-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.bandiera {
+  width: 24px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--bordo);
+}
+
+.forma {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  min-height: 26px;
+  font-size: 1.1rem;
+}
+
+.forma-alta {
+  color: var(--positivo);
+}
+
+.forma-bassa {
+  color: var(--negativo);
+}
+
+/* ---------- filtri ---------- */
+
+.filtri {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.campo-etichetta {
+  color: var(--testo-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.testo,
+.selezione {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+}
+
+.filtri-riga {
+  display: flex;
+  gap: 8px;
+}
+
+.filtri-riga > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.interruttore {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 4px;
+}
+
+.interruttore input {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---------- pulsanti ---------- */
+
+.pulsante {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  background: var(--accento);
+  border: 1px solid var(--accento);
+  border-radius: 10px;
+  color: var(--accento-testo);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pulsante[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pulsante-secondario {
+  background: var(--superficie-2);
+  border-color: var(--bordo);
+  color: var(--testo);
+}
+
+.pulsante-grande {
+  width: 100%;
+}
+
+.pulsanti {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+/* ---------- stati ---------- */
+
+.scheletro {
+  height: var(--riga-min);
+  margin: 0;
+  border-bottom: 1px solid var(--bordo);
+  background: linear-gradient(90deg, var(--superficie-2), var(--superficie), var(--superficie-2));
+  background-size: 200% 100%;
+  animation: luccica 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+@keyframes luccica {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scheletro {
+    animation: none;
+  }
+}
+
+.blocco-errore {
+  padding: 16px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  text-align: center;
+}
+
+/* ---------- esagono ---------- */
+
+.esagono {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  margin: 0 auto;
+}
+
+.esagono-anello {
+  fill: none;
+  stroke: var(--bordo);
+  stroke-width: 1;
+}
+
+.esagono-mediane {
+  fill: color-mix(in srgb, var(--accento) 22%, transparent);
+  stroke: var(--accento);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.esagono-mio {
+  fill: none;
+  stroke: var(--positivo);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  stroke-linejoin: round;
+}
+
+/* text-anchor e dominant-baseline arrivano come attributi dal codice,
+   per poter cambiare allineamento etichetta per etichetta. */
+.esagono-etichetta {
+  fill: var(--testo-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.esagono-overall {
+  fill: var(--testo);
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.esagono-vuoto {
+  fill: var(--testo-2);
+  font-size: 12px;
+}
+
+.riassunto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+.riassunto-nome {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.riassunto-ruolo {
+  margin: 0;
+  color: var(--testo-2);
+  font-size: 0.9rem;
+}
+
+/* ---------- statistiche ---------- */
+
+.griglia {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.cella {
+  padding: 8px 10px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+}
+
+.cella-etichetta {
+  display: block;
+  color: var(--testo-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cella-valore {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.esito {
+  display: inline-flex;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.esito-v {
+  color: var(--positivo);
+}
+
+.esito-p {
+  color: var(--testo-2);
+}
+
+.esito-s {
+  color: var(--negativo);
+}
+
+.rendimento {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rendimento li {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 6px;
+  border: 1px solid var(--bordo);
+  border-radius: 8px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.etichetta-mvp {
+  color: var(--avviso);
+  font-size: 0.7rem;
+}
+
+/* ---------- votazione ---------- */
+
+.votazione {
+  padding: 12px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+}
+
+.voto-riga {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--bordo);
+}
+
+.voto-riga:last-of-type {
+  border-bottom: 0;
+}
+
+.voto-nome {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--testo-2);
+  letter-spacing: 0.03em;
+}
+
+.voto-mediana {
+  color: var(--testo-2);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.voto-controlli {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.voto-passo {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--superficie-2);
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.voto-campo {
+  width: 58px;
+  height: 44px;
+  padding: 4px;
+  background: var(--superficie-2);
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- partite ---------- */
+
+.partita {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+}
+
+.partita-data {
+  margin: 0 0 2px;
+  color: var(--testo-2);
+  font-size: 0.85rem;
+}
+
+.partita-risultato {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.squadra {
+  margin-bottom: 8px;
+}
+
+.squadra-nome {
+  margin: 0 0 4px;
+  color: var(--testo-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.squadra-elenco {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.squadra-giocatore {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--bordo);
+}
+
+.squadra-giocatore:last-child {
+  border-bottom: 0;
+}
+
+.squadra-gol {
+  min-width: 26px;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.badge-mvp {
+  padding: 1px 6px;
+  border: 1px solid var(--avviso);
+  border-radius: 999px;
+  color: var(--avviso);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.guidinha {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--bordo);
+  color: var(--testo-2);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.guidinha-nome {
+  color: var(--testo);
+  font-weight: 600;
+}
+
+/* ---------- accesso ---------- */
+
+.accesso {
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.accesso-lista {
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.pin-campi {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.pin-campo {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  background: var(--superficie);
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+  letter-spacing: 0.35em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cella-pi {
+  text-align: center;
+  color: var(--testo-2);
+}
+
+/* ---------- barra in basso ---------- */
+
+.barra {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  background: var(--superficie);
+  border-top: 1px solid var(--bordo);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.barra-voce {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--barra-altezza);
+  padding: 6px 2px;
+  color: var(--testo-2);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.barra-voce[aria-current="page"] {
+  color: var(--accento);
+  box-shadow: inset 0 -3px 0 var(--accento);
+}
+
+@media (min-width: 480px) {
+  .barra-etichetta {
+    font-size: 0.9rem;
+  }
+}

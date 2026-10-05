@@ -2,11 +2,57 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Flannery Night v2 — Passo 1</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#11151c">
+<title>Flannery Night</title>
+<link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<h1>Flannery Night v2</h1>
-<p>Fondamenta (passo 1 di 6). La classifica arriva nei passi successivi.</p>
+<a class="salta" href="#contenuto">Salta al contenuto</a>
+
+<header class="testata">
+  <div class="testata-riga">
+    <h1 class="marchio">Flannery Night</h1>
+    <div class="testata-azioni">
+      <span class="stagione-campo" id="stagione-campo" hidden>
+        <label class="solo-lettori" for="stagione">Stagione</label>
+        <select id="stagione" class="stagione"></select>
+      </span>
+      <button type="button" id="pulsante-account" class="pulsante-icona" aria-haspopup="true" aria-expanded="false" aria-controls="menu-account">
+        <svg class="icona-giocatore" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"></path>
+        </svg>
+        <span class="solo-lettori">Account</span>
+      </button>
+    </div>
+  </div>
+  <div id="menu-account" class="menu" hidden>
+    <p class="menu-titolo" id="menu-titolo">Account</p>
+    <a class="menu-voce" id="voce-cambia" href="/accesso/cambia">Cambia PIN</a>
+    <a class="menu-voce" id="voce-accedi" href="/accesso">Accedi</a>
+    <button type="button" class="menu-voce menu-esci" id="voce-esci">Esci</button>
+  </div>
+</header>
+
+<main id="contenuto" class="contenuto" tabindex="-1"></main>
+
+<nav class="barra" aria-label="Sezioni del sito">
+  <a class="barra-voce" id="nav-home" href="/home" hidden>
+    <span class="barra-etichetta">Home</span>
+  </a>
+  <a class="barra-voce" id="nav-classifica" href="/classifica">
+    <span class="barra-etichetta">Classifica</span>
+  </a>
+  <a class="barra-voce" id="nav-giocatori" href="/giocatori">
+    <span class="barra-etichetta">Giocatori</span>
+  </a>
+  <a class="barra-voce" id="nav-partite" href="/partite">
+    <span class="barra-etichetta">Partite</span>
+  </a>
+</nav>
+
+<script type="module" src="/js/app.js"></script>
 </body>
 </html>

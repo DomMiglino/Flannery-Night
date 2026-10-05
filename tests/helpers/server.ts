@@ -84,6 +84,7 @@ export interface Reply {
   body: any;
   text: string;
   cookies: string[];
+  headers: Headers;
 }
 
 export interface TestServer {
@@ -221,7 +222,7 @@ export async function startServer(): Promise<TestServer> {
     }
     const headers2 = res.headers as unknown as { getSetCookie?: () => string[] };
     const cookies = typeof headers2.getSetCookie === "function" ? headers2.getSetCookie() : [];
-    return { status: res.status, body, text, cookies };
+    return { status: res.status, body, text, cookies, headers: res.headers };
   };
 
   /** Una riga dal D1 di test: se manca, il test fallisce con un messaggio chiaro. */

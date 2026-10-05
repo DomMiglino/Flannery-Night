@@ -10,6 +10,7 @@ import { storePinV2, verifyWithLocking } from "../pinflow";
 import { getCredential } from "../queries";
 import type { AuthedPlayer } from "../session";
 import { currentPlayer, issueSession, sessionCookieHeader } from "../session";
+import { overallForRole } from "../calc";
 
 export async function me(auth: AuthedPlayer): Promise<Response> {
   return json({
@@ -58,7 +59,21 @@ export async function myVotes(env: Env, auth: AuthedPlayer): Promise<Response> {
   )
     .bind(auth.player.id)
     .all<Record<string, unknown>>();
-  return json({ votes: rows.results ?? [] });
+
+  const votes = (rows.results ?? []).map((row) => {
+    const role = typeof row.targetRole === "string" ? row.targetRole : "";
+    const myOverall = overallForRole(role, {
+      vel_tuf: typeof row.velTuf === "number" ? row.velTuf : null,
+      tir_pre: typeof row.tirPre === "number" ? row.tirPre : null,
+      pass_rin: typeof row.passRin === "number" ? row.passRin : null,
+      dri_rif: typeof row.driRif === "number" ? row.driRif : null,
+      dif_rea: typeof row.difRea === "number" ? row.difRea : null,
+      fis_pia: typeof row.fisPia === "number" ? row.fisPia : null,
+    });
+    return { ...row, myOverall };
+  });
+
+  return json({ votes });
 }
 
 export { currentPlayer };

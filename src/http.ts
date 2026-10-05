@@ -11,6 +11,44 @@ export const MSG = {
   pinInvalid: "PIN non valido",
 } as const;
 
+/**
+ * Interfaccia senza script e stili in linea: tutto arriva da file esterni
+ * serviti dal Worker, quindi 'self' basta e non serve 'unsafe-inline'.
+ * frame-ancestors 'none' impedisce di incastrare il sito in un riquadro.
+ */
+export const SECURITY_HEADERS: Record<string, string> = {
+  "content-security-policy":
+    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+};
+
+type SetCookieHeaders = { getSetCookie?: () => string[] };
+
+/**
+ * Aggiunge le intestazioni a una risposta qualsiasi (anche agli asset).
+ * Se le intestazioni sono immutabili la risposta viene ricostruita,
+ * recuperando i cookie che altrimenti andrebbero persi.
+ */
+export function withSecurityHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
+  const rebuilt = new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+  const from = response.headers as unknown as SetCookieHeaders;
+  const to = rebuilt.headers as unknown as SetCookieHeaders;
+  if (typeof from.getSetCookie === "function" && typeof to.getSetCookie === "function") {
+    const original = from.getSetCookie();
+    if (original.length > 0 && to.getSetCookie().length === 0) {
+      for (const cookie of original) rebuilt.headers.append("set-cookie", cookie);
+    }
+  }
+  return rebuilt;
+}
+
 export function json(data: unknown, status = 200, extraHeaders?: Record<string, string>): Response {
   return new Response(JSON.stringify(data), {
     status,

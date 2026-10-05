@@ -42,7 +42,10 @@ export async function createPin(env: Env, request: Request): Promise<Response> {
 
   await storePinV2(env, player.id, pin);
   await audit(env, player.id, "create_pin");
-  const token = await issueSession(env, player.id, 0);
+  // La versione di sessione puo' essere > 0 (per esempio dopo un reset
+  // del PIN): il cookie deve usare quella, altrimenti /api/me risponde 401.
+  const fresh = await getCredential(env, player.id);
+  const token = await issueSession(env, player.id, fresh?.session_version ?? 0);
   return withCookie(json({ ok: true, id: player.id }), sessionCookieHeader(token));
 }
 

@@ -97,21 +97,28 @@ export function overallForRole(
     fis_pia: number | null;
   },
 ): number | null {
-  const v = a.vel_tuf;
-  const t = a.tir_pre;
-  const p = a.pass_rin;
-  const d = a.dri_rif;
-  const df = a.dif_rea;
-  const f = a.fis_pia;
-  if (v == null || t == null || p == null || d == null || df == null || f == null) return null;
-  if (role === "P") return round1(0.25 * v + 0.15 * t + 0.1 * p + 0.25 * d + 0.1 * df + 0.15 * f);
-  if (role === "DC") return round1(0.15 * v + 0.1 * p + 0.05 * d + 0.4 * df + 0.3 * f);
-  if (role === "DL") return round1(0.2 * v + 0.15 * p + 0.05 * d + 0.3 * df + 0.3 * f);
-  if (role === "CC") return round1(0.15 * v + 0.15 * t + 0.3 * p + 0.15 * d + 0.15 * df + 0.1 * f);
-  if (role === "CL") return round1(0.3 * v + 0.1 * t + 0.2 * p + 0.25 * d + 0.05 * df + 0.1 * f);
-  if (role === "PC") return round1(0.2 * v + 0.4 * t + 0.05 * p + 0.15 * d + 0.2 * f);
-  return round1((v + t + p + d + df + f) / 6);
+  const values = [a.vel_tuf, a.tir_pre, a.pass_rin, a.dri_rif, a.dif_rea, a.fis_pia];
+  if (values.some((v) => v == null)) return null;
+  const weights = ROLE_WEIGHTS[role];
+  if (!weights) return round1((values as number[]).reduce((a2, b) => a2 + b, 0) / 6);
+  let total = 0;
+  for (let i = 0; i < 6; i++) total += weights[i] * (values[i] as number);
+  return round1(total);
 }
+
+/**
+ * Pesi per ruolo, nell'ordine VEL/TUF, TIR/PRE, PASS/RIN, DRI/RIF,
+ * DIF/REA, FIS/PIA. Esposti perché l'interfaccia calcola il "mio overall"
+ * con gli stessi pesi: un test confronta questa tabella con public/js/ratings.js.
+ */
+export const ROLE_WEIGHTS: Record<string, number[]> = {
+  P: [0.25, 0.15, 0.1, 0.25, 0.1, 0.15],
+  DC: [0.15, 0, 0.1, 0.05, 0.4, 0.3],
+  DL: [0.2, 0, 0.15, 0.05, 0.3, 0.3],
+  CC: [0.15, 0.15, 0.3, 0.15, 0.15, 0.1],
+  CL: [0.3, 0.1, 0.2, 0.25, 0.05, 0.1],
+  PC: [0.2, 0.4, 0.05, 0.15, 0, 0.2],
+};
 
 /** Come getMedians_ in Code.gs per un singolo giocatore. */
 export function summarizeVotes(role: string, rows: VoteRow[]): RatingSummary {

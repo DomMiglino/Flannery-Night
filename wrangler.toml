@@ -15,3 +15,10 @@ ADMIN_PATH = "/gestione"
 [assets]
 directory = "./public"
 binding = "ASSETS"
+# Le rotte dell'interfaccia (/classifica, /giocatori/:id, ...) non sono file:
+# senza questo, ogni percorso diverso da index.html darebbe 404.
+not_found_handling = "single-page-application"
+# Il Worker gira per primo su OGNI richiesta (anche gli asset): così le
+# intestazioni di sicurezza arrivano su tutte le risposte, non solo sulle API.
+# Il Worker rimanda agli asset tutto ciò che non è /api/* né il percorso riservato.
+run_worker_first = true
