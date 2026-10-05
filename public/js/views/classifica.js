@@ -1,13 +1,29 @@
-// Passo 4: classifica. Lista compatta: posizione, bandiera, nome,
-// Flannery Power Score, freccia di forma e giocate. Toccando la riga
-// si apre la scheda del giocatore, che ha tutte le altre cifre.
+// Passo 4: classifica come tabella ordinabile. Si ordina toccando
+// l'intestazione; la posizione mostra sempre quella ufficiale
+// (per Flannery Power Score), anche con un altro ordinamento.
 
 import { ApiError, api } from "../api.js";
 import { clear, el, linkInterno } from "../dom.js";
 import { formatNumber } from "../format.js";
 import { withAppearances } from "../lists.js";
-import { bandiera, errore, forma, scheletro, titolo } from "../ui.js";
+import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../ordina.js";
+import { bandiera, errore, forma, scheletro, separaMvp, titolo } from "../ui.js";
 import { withSeason } from "../routes.js";
+
+/**
+ * Rendimento in piccoli segnaposto con la lettera visibile e la stella
+ * dove il giocatore è stato MVP. Il colore è solo di supporto.
+ */
+function segniRendimento(lista) {
+  const gruppo = el("span", { className: "segni" });
+  for (const etichetta of Array.isArray(lista) ? lista : []) {
+    const { testo, mvp } = separaMvp(etichetta);
+    const prima = (testo || "").charAt(0).toUpperCase();
+    const classe = prima === "V" ? "segno segno-v" : prima === "S" ? "segno segno-s" : "segno segno-p";
+    gruppo.append(el("span", { className: classe, text: mvp ? `${testo}★` : testo }));
+  }
+  return gruppo;
+}
 
 /**
  * Rendimento in una sola riga di testo: "V*" diventa "V★".
@@ -17,13 +33,64 @@ export function testoRendimento(lista) {
   return (Array.isArray(lista) ? lista : []).map((e) => String(e ?? "").replace("*", "★")).join(" ");
 }
 
-/** Una cella numerica: il trattino se il valore manca. */
-function cellaNumero(testo) {
-  return el("td", { className: "tabella-numero", text: testo });
+/** Una cella numerica: il trattino se il valore manca, tono attenuato se zero. */
+function cellaNumero(testo, zero = false, forte = false) {
+  const classi = ["tabella-numero"];
+  if (zero) classi.push("tabella-zero");
+  if (forte) classi.push("tabella-forte");
+  return el("td", { className: classi.join(" "), text: testo });
 }
 
 function intero(value) {
   return value === null || value === undefined ? "—" : String(value);
+}
+
+function zero(value) {
+  return Number(value) === 0;
+}
+
+const COLONNE = [
+  { id: "nome", etichetta: "Giocatore", chiave: "name", iniziale: "asc" },
+  { id: "power", etichetta: "Flannery Power Score", chiave: "powerScore", iniziale: "desc" },
+  { id: "forma", etichetta: "Forma", chiave: "formaScore", iniziale: "desc" },
+  { id: "giocate", etichetta: "Giocate", chiave: "played", iniziale: "desc" },
+  { id: "vinte", etichetta: "Vinte", chiave: "V", iniziale: "desc" },
+  { id: "pareggiate", etichetta: "Pareggiate", chiave: "P", iniziale: "desc" },
+  { id: "perse", etichetta: "Perse", chiave: "S", iniziale: "desc" },
+  { id: "gol", etichetta: "Gol", chiave: "goals", iniziale: "desc" },
+  { id: "mediagol", etichetta: "Media gol", chiave: "avgGoals", iniziale: "desc" },
+  { id: "autogol", etichetta: "Autogol", chiave: "ownGoals", iniziale: "desc" },
+  { id: "punti", etichetta: "Punti", chiave: "points", iniziale: "desc" },
+  { id: "mediapunti", etichetta: "Media punti", chiave: "avgPoints", iniziale: "desc" },
+  { id: "mvp", etichetta: "MVP", chiave: "mvp", iniziale: "desc" },
+  { id: "guidinha", etichetta: "Guidinha", chiave: "guidinha", iniziale: "desc" },
+];
+
+/** Spareggi ufficiali: Power Score, poi somma pesi MVP, poi nome. */
+const SPAREGGI_UFFICIALI = [
+  { chiave: "powerScore", direzione: "desc" },
+  { chiave: "mvpWeight", direzione: "desc" },
+  { chiave: "name", direzione: "asc" },
+];
+
+const INIZIALE = { id: "power", chiave: "powerScore", direzione: "desc" };
+
+function intestazione(colonna, stato, alToccare) {
+  const attiva = stato.id === colonna.id;
+  const bottone = el("button", {
+    className: attiva ? "th-ordina th-attiva" : "th-ordina",
+    attrs: { type: "button", "aria-label": `Ordina per ${colonna.etichetta}` },
+    children: [
+      el("span", { text: colonna.etichetta }),
+      el("span", {
+        className: "th-freccia",
+        text: attiva ? (stato.direzione === "asc" ? "▲" : "▼") : "↕",
+        attrs: { "aria-hidden": "true" },
+      }),
+    ],
+    on: { click: () => alToccare(colonna) },
+  });
+  return el("th", { attrs: { scope: "col", "aria-sort": ariaSort(attiva, stato.direzione) }, children: [bottone] });
 }
 
 export async function renderClassifica(root, ctx) {
@@ -31,40 +98,41 @@ export async function renderClassifica(root, ctx) {
   root.append(titolo("Classifica"));
   root.append(scheletro(8));
 
+  let risposta;
   try {
-    const risposta = await api.ranking(ctx.stagione());
-    const righe = withAppearances(risposta.rows);
+    risposta = await api.ranking(ctx.stagione());
+  } catch (erroreApi) {
+    const messaggio = erroreApi instanceof ApiError && erroreApi.status === 401 ? "Accesso non consentito" : "Non riesco a caricare i dati";
     clear(root);
     root.append(titolo("Classifica"));
-    root.append(el("p", { className: "nota", text: `${risposta.season.name} · ${righe.length} in classifica` }));
+    root.append(errore(messaggio, () => renderClassifica(root, ctx)));
+    return;
+  }
 
-    if (righe.length === 0) {
-      root.append(el("p", { className: "nota", text: "Non risultano ancora partite pubblicate." }));
-      return;
-    }
+  const righe = withAppearances(risposta.rows);
+  // Posizione ufficiale: ordine per Power Score con gli spareggi ufficiali.
+  const ufficiali = ordinaRighe(righe, { chiave: "powerScore", direzione: "desc", spareggi: SPAREGGI_UFFICIALI.slice(1) });
+  const posizioneDi = new Map(ufficiali.map((r, i) => [r.id, i + 1]));
 
-    const intestazioni = [
-      "Giocatore",
-      "Flannery Power Score",
-      "Forma",
-      "Giocate",
-      "Vinte",
-      "Pareggiate",
-      "Perse",
-      "Gol",
-      "Media gol",
-      "Autogol",
-      "Punti",
-      "Media punti",
-      "MVP",
-      "Guidinha",
-      "Rendimento",
-    ];
+  const memoria = memoriaOrdinamento("classifica", location.pathname, INIZIALE);
+  const contenitore = el("div");
+
+  function disegna() {
+    const stato = memoria.ordinamento;
+    const ordinate = ordinaRighe(righe, { chiave: stato.chiave, direzione: stato.direzione, spareggi: SPAREGGI_UFFICIALI });
+    clear(contenitore);
+
     const testa = el("tr", {
-      children: intestazioni.map((t) => el("th", { attrs: { scope: "col" }, text: t })),
+      children: [
+        ...COLONNE.map((c) => intestazione(c, stato, (colonna) => {
+          memoria.ordinamento = prossimoStato(stato, colonna);
+          disegna();
+        })),
+        el("th", { attrs: { scope: "col", "aria-sort": "none" }, text: "Rendimento" }),
+      ],
     });
     const corpo = el("tbody");
-    righe.forEach((riga, indice) => {
+    for (const riga of ordinate) {
       const bandierina = bandiera(riga.flag);
       const nome = el("a", {
         className: "tabella-nome",
@@ -72,35 +140,49 @@ export async function renderClassifica(root, ctx) {
         text: riga.name,
       });
       linkInterno(nome, ctx.navigate);
+      const posizione = posizioneDi.get(riga.id) ?? 0;
       corpo.append(
         el("tr", {
           children: [
             el("th", {
               attrs: { scope: "row" },
               children: [
-                el("span", { className: "posizione", text: String(indice + 1), attrs: { "aria-hidden": "true" } }),
+                el("span", {
+                  className: posizione <= 3 ? "posizione posizione-top" : "posizione",
+                  text: String(posizione),
+                  attrs: { "aria-hidden": "true" },
+                }),
                 bandierina,
                 nome,
               ],
             }),
-            cellaNumero(formatNumber(riga.powerScore, 1)),
+            cellaNumero(formatNumber(riga.powerScore, 1), false, true),
             el("td", { children: [forma(riga.formaArrow)] }),
-            cellaNumero(intero(riga.played)),
-            cellaNumero(intero(riga.V)),
-            cellaNumero(intero(riga.P)),
-            cellaNumero(intero(riga.S)),
-            cellaNumero(intero(riga.goals)),
-            cellaNumero(riga.avgGoals === null || riga.avgGoals === undefined ? "—" : formatNumber(riga.avgGoals, 1)),
-            cellaNumero(intero(riga.ownGoals)),
-            cellaNumero(intero(riga.points)),
-            cellaNumero(riga.avgPoints === null || riga.avgPoints === undefined ? "—" : formatNumber(riga.avgPoints, 1)),
-            cellaNumero(intero(riga.mvp)),
-            cellaNumero(intero(riga.guidinha)),
-            el("td", { text: testoRendimento(riga.rendimento), attrs: { "aria-label": "Rendimento ultime cinque, stella = MVP" } }),
+            cellaNumero(intero(riga.played), zero(riga.played)),
+            cellaNumero(intero(riga.V), zero(riga.V)),
+            cellaNumero(intero(riga.P), zero(riga.P)),
+            cellaNumero(intero(riga.S), zero(riga.S)),
+            cellaNumero(intero(riga.goals), zero(riga.goals)),
+            cellaNumero(riga.avgGoals === null || riga.avgGoals === undefined ? "—" : formatNumber(riga.avgGoals, 1), zero(riga.avgGoals)),
+            cellaNumero(intero(riga.ownGoals), zero(riga.ownGoals)),
+            cellaNumero(intero(riga.points), zero(riga.points)),
+            cellaNumero(riga.avgPoints === null || riga.avgPoints === undefined ? "—" : formatNumber(riga.avgPoints, 1), zero(riga.avgPoints)),
+            cellaNumero(intero(riga.mvp), zero(riga.mvp)),
+            cellaNumero(intero(riga.guidinha), zero(riga.guidinha)),
+            el("td", { children: [segniRendimento(riga.rendimento)], attrs: { "aria-label": "Rendimento ultime cinque, stella = MVP" } }),
           ],
         }),
       );
-    });
+    }
+
+    // La colonna attiva ha lo sfondo evidenziato.
+    const indiceAttiva = COLONNE.findIndex((c) => c.id === stato.id);
+    if (indiceAttiva >= 0) {
+      for (const tr of corpo.children) {
+        const cella = tr.children[indiceAttiva + 1];
+        if (cella) cella.classList.add("colonna-attiva");
+      }
+    }
 
     const tabella = el("table", {
       className: "tabella",
@@ -110,17 +192,24 @@ export async function renderClassifica(root, ctx) {
         corpo,
       ],
     });
-    root.append(
+    contenitore.append(
       el("div", {
         className: "tabella-scorre",
         attrs: { tabindex: "0", role: "region", "aria-label": "Tabella scorrevole" },
         children: [tabella],
       }),
     );
-  } catch (erroreApi) {
-    const messaggio = erroreApi instanceof ApiError && erroreApi.status === 401 ? "Accesso non consentito" : "Non riesco a caricare i dati";
-    clear(root);
-    root.append(titolo("Classifica"));
-    root.append(errore(messaggio, () => renderClassifica(root, ctx)));
   }
+
+  clear(root);
+  root.append(titolo("Classifica"));
+  root.append(el("p", { className: "nota", text: `${risposta.season.name} · ${righe.length} in classifica` }));
+
+  if (righe.length === 0) {
+    root.append(el("p", { className: "nota", text: "Non risultano ancora partite pubblicate." }));
+    return;
+  }
+
+  root.append(contenitore);
+  disegna();
 }

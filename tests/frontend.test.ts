@@ -19,7 +19,8 @@ import {
 import { activeNav, homePath, navItems, needsSeason, normalizePath, resolveRoute, seasonFromSearch, withSeason } from "../public/js/routes.js";
 import { PESI, etichettePerRuolo, myOverall, valoriDaVoto, valoriIniziali, median, votiPerTarget } from "../public/js/ratings.js";
 import { clamp, flagUrl, formatDate, formatNumber, formatOverall, formatOverallUp, formatShortDate, formatVotes, formaLabel, stepValue } from "../public/js/format.js";
-import { filterPlayers, rolesOf, sortPlayers, withAppearances } from "../public/js/lists.js";
+import { filterPlayers, rolesOf, withAppearances } from "../public/js/lists.js";
+import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../public/js/ordina.js";
 import { guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
@@ -300,22 +301,6 @@ describe("elenco giocatori", () => {
     { id: "d", name: "Davide", role: "P", overall: 80 },
   ];
 
-  it("l'overall va dal più alto al più basso, chi non ha voti in fondo", () => {
-    const ordine = sortPlayers(GIOCATORI, "overall-desc").map((g: any) => g.name);
-    expect(ordine[0]).toBe("Carlo");
-    expect(ordine[ordine.length - 1]).toBe("bernardo");
-  });
-
-  it("crescente e decrescente tengono i senza voti in fondo", () => {
-    const crescente = sortPlayers(GIOCATORI, "overall-asc").map((g: any) => g.name);
-    expect(crescente[crescente.length - 1]).toBe("bernardo");
-    expect(crescente.slice(0, 2)).toEqual(["Antonio", "Davide"]);
-  });
-
-  it("per nome si ordina alfabeticamente", () => {
-    expect(sortPlayers(GIOCATORI, "nome").map((g: any) => g.name)).toEqual(["Antonio", "bernardo", "Carlo", "Davide"]);
-  });
-
   it("la ricerca ignora accenti e maiuscole", () => {
     expect(filterPlayers(GIOCATORI, { query: "BErn" }).map((g: any) => g.name)).toEqual(["bernardo"]);
     expect(filterPlayers(GIOCATORI, { query: "" })).toHaveLength(4);
@@ -353,6 +338,83 @@ describe("elenco giocatori", () => {
       { id: "c", played: 1 },
     ];
     expect(withAppearances(righe).map((r: any) => r.id)).toEqual(["a", "c"]);
+  });
+});
+
+describe("ordinamento delle tabelle", () => {
+  const RIGHE = [
+    { id: "a", name: "Carlo", powerScore: 10.5, mvpWeight: 1, overall: 80 },
+    { id: "b", name: "bernardo", powerScore: null, mvpWeight: 0, overall: null },
+    { id: "c", name: "Antonio", powerScore: 12, mvpWeight: 0.5, overall: 85 },
+    { id: "d", name: "Davide", powerScore: 10.5, mvpWeight: 2, overall: 80 },
+  ];
+  const UFFICIALI: Array<{ chiave: string; direzione: "asc" | "desc" }> = [
+    { chiave: "powerScore", direzione: "desc" },
+    { chiave: "mvpWeight", direzione: "desc" },
+    { chiave: "name", direzione: "asc" },
+  ];
+
+  it("decrescente e crescente sui numeri esatti", () => {
+    expect(ordinaRighe(RIGHE, { chiave: "powerScore", direzione: "desc" }).map((r: any) => r.id)).toEqual(["c", "a", "d", "b"]);
+    expect(ordinaRighe(RIGHE, { chiave: "powerScore", direzione: "asc" }).map((r: any) => r.id)).toEqual(["a", "d", "c", "b"]);
+  });
+
+  it("i null vanno sempre in fondo, in entrambe le direzioni", () => {
+    const giu = ordinaRighe(RIGHE, { chiave: "overall", direzione: "desc" }).map((r: any) => r.id);
+    const su = ordinaRighe(RIGHE, { chiave: "overall", direzione: "asc" }).map((r: any) => r.id);
+    expect(giu[giu.length - 1]).toBe("b");
+    expect(su[su.length - 1]).toBe("b");
+    expect(su.slice(0, 2)).toEqual(["a", "d"]);
+  });
+
+  it("spareggio ufficiale: Power, poi somma MVP, poi nome", () => {
+    const ordine = ordinaRighe(RIGHE, { chiave: "powerScore", direzione: "desc", spareggi: [...UFFICIALI] }).map((r: any) => r.id);
+    expect(ordine).toEqual(["c", "d", "a", "b"]);
+  });
+
+  it("i nomi si confrontano ignorando maiuscole e accenti", () => {
+    const nomi = [{ name: "zecchino" }, { name: "Amaro" }, { name: "èlia" }];
+    expect(ordinaRighe(nomi, { chiave: "name", direzione: "asc" }).map((r: any) => r.name)).toEqual(["Amaro", "èlia", "zecchino"]);
+  });
+
+  it("stabile: a pari valori resta l'ordine di partenza", () => {
+    const pari = [{ id: "x", v: 1 }, { id: "y", v: 1 }, { id: "z", v: 1 }];
+    expect(ordinaRighe(pari, { chiave: "v", direzione: "desc" }).map((r: any) => r.id)).toEqual(["x", "y", "z"]);
+  });
+
+  it("non muta l'originale e accetta chiavi funzione", () => {
+    const ruoli = [{ role: "CC" }, { role: "P" }, { role: "DL" }];
+    const ordine = ["P", "DC", "DL", "CC", "CL", "PC"];
+    const copia = ruoli.map((r) => ({ ...r }));
+    const risultato = ordinaRighe(ruoli, { chiave: (r: any) => ordine.indexOf(r.role), direzione: "asc" });
+    expect(risultato.map((r: any) => r.role)).toEqual(["P", "DL", "CC"]);
+    expect(ruoli).toEqual(copia);
+  });
+
+  it("tocchi: iniziale, inversa, di nuovo iniziale", () => {
+    const colonna = { id: "gol", chiave: "goals", iniziale: "desc" as const };
+    const primo: any = prossimoStato(null, colonna);
+    expect(primo).toEqual({ id: "gol", chiave: "goals", direzione: "desc" });
+    const secondo: any = prossimoStato(primo, colonna);
+    expect(secondo.direzione).toBe("asc");
+    expect(prossimoStato(secondo, colonna)).toEqual(primo);
+    const altra = { id: "nome", chiave: "name", iniziale: "asc" as const };
+    expect(prossimoStato(secondo, altra)).toEqual({ id: "nome", chiave: "name", direzione: "asc" });
+  });
+
+  it("aria-sort: none sulle altre, corretto sull'attiva", () => {
+    expect(ariaSort(false, "desc")).toBe("none");
+    expect(ariaSort(true, "desc")).toBe("descending");
+    expect(ariaSort(true, "asc")).toBe("ascending");
+  });
+
+  it("la memoria resta sulla stagione e si azzera rientrando", () => {
+    const iniziale = { id: "power", chiave: "powerScore", direzione: "desc" as const };
+    const prima = memoriaOrdinamento("prova", "/classifica", iniziale);
+    prima.ordinamento = { id: "gol", chiave: "goals", direzione: "asc" };
+    expect(memoriaOrdinamento("prova", "/classifica", iniziale).ordinamento.id).toBe("gol");
+    expect(memoriaOrdinamento("prova", "/giocatori", iniziale).ordinamento).toEqual(iniziale);
+    expect(memoriaOrdinamento("altra", "/classifica", iniziale).ordinamento).toEqual(iniziale);
   });
 });
 

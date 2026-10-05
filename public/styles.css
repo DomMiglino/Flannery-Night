@@ -26,6 +26,9 @@
   --raggio: 12px;
   --riga-min: 56px;
   --barra-altezza: 60px;
+  --zebra: #edf1f7;
+  --evidenza: #e2ebfb;
+  --riga-hover: #e6ebf3;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +45,9 @@
     --negativo: #ff9b9b;
     --avviso: #f0be6a;
     --ombra: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --zebra: #202936;
+    --evidenza: #24344d;
+    --riga-hover: #26303d;
   }
 }
 
@@ -296,13 +302,18 @@ button {
   background: var(--superficie-2);
 }
 
-.voce-griglia {
-  grid-template-columns: 30px 24px 1fr auto;
-}
-
-/* Tabelle scorrevoli: la pagina non scorre mai, solo il contenitore. */
+/* Tabelle scorrevoli: la pagina non scorre mai, solo il contenitore.
+   L'intestazione non resta fissa in alto: il contenitore scorre solo in
+   orizzontale, quindi thead sticky non avrebbe effetto sullo scroll
+   verticale della pagina. */
 .tabella-scorre {
   overflow-x: auto;
+}
+
+.tabella-scorre:focus-visible {
+  outline: 2px solid var(--accento);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 .tabella {
@@ -317,17 +328,79 @@ button {
   text-align: left;
 }
 
+/* Intestazione con sfondo distinto e testo semibold maiuscoletto. */
+.tabella thead th {
+  padding: 4px;
+  background: var(--superficie-2);
+  border-bottom: 2px solid var(--bordo);
+  vertical-align: middle;
+}
+
 .tabella th,
 .tabella td {
   min-width: 44px;
-  padding: 10px;
+  padding: 12px 10px;
   border-bottom: 1px solid var(--bordo);
   text-align: left;
   white-space: nowrap;
   vertical-align: middle;
 }
 
-/* Prima colonna ferma a sinistra, con sfondo pieno e ombra leggera. */
+/* Pulsante di ordinamento: bersaglio 44 px, focus visibile. */
+.th-ordina {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 4px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.th-ordina:focus-visible {
+  outline: 2px solid var(--accento);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.th-attiva {
+  color: var(--accento);
+}
+
+.th-freccia {
+  font-size: 0.75rem;
+  opacity: 0.45;
+}
+
+.th-attiva .th-freccia {
+  opacity: 1;
+}
+
+/* Righe alternate leggere ed evidenziatore al tocco. */
+.tabella tbody tr:nth-child(even) > :not(.colonna-attiva) {
+  background: var(--zebra);
+}
+
+.tabella tbody tr:hover > :not(.colonna-attiva) {
+  background: var(--riga-hover);
+}
+
+/* Colonna attiva con sfondo evidenziato. */
+.tabella .colonna-attiva {
+  background-color: var(--evidenza) !important;
+}
+
+/* Prima colonna ferma a sinistra, con sfondo pieno e ombra leggera
+   sempre presente e discreta. */
 .tabella thead th:first-child,
 .tabella tbody th[scope="row"] {
   position: sticky;
@@ -335,6 +408,14 @@ button {
   z-index: 1;
   background: var(--superficie);
   box-shadow: 2px 0 4px rgba(0, 0, 0, 0.12);
+}
+
+.tabella tbody tr:nth-child(even) th[scope="row"]:not(.colonna-attiva) {
+  background: var(--zebra);
+}
+
+.tabella tbody tr:hover th[scope="row"]:not(.colonna-attiva) {
+  background: var(--riga-hover);
 }
 
 .tabella-nome {
@@ -346,11 +427,74 @@ button {
 }
 
 .tabella-numero {
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.voce-giocatori {
-  grid-template-columns: 24px 1fr auto;
+.tabella-forte {
+  font-weight: 700;
+}
+
+/* Zeri meno marcati dei valori positivi. */
+.tabella-zero {
+  color: var(--testo-2);
+}
+
+/* Rendimento: segnaposto con lettera visibile, il colore è di supporto. */
+.segni {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.segno {
+  min-width: 26px;
+  padding: 2px 6px;
+  border: 1px solid var(--bordo);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.segno-v {
+  color: var(--positivo);
+  border-color: currentColor;
+}
+
+.segno-s {
+  color: var(--negativo);
+  border-color: currentColor;
+}
+
+.segno-p {
+  color: var(--avviso);
+  border-color: currentColor;
+}
+
+/* Ruolo come piccola etichetta, overall in un riquadro, Mio in tono distinto. */
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--bordo);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.overall-pill {
+  display: inline-block;
+  min-width: 44px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: var(--superficie-2);
+  font-weight: 700;
+  text-align: center;
+}
+
+.tabella-mio {
+  color: var(--testo-2);
 }
 
 /* Nomi nell'accesso: solo il nome, intero e a capo, mai troncato. */
@@ -385,31 +529,25 @@ button {
   text-overflow: ellipsis;
 }
 
-.voce-numeri {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
 .posizione {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
   color: var(--testo-2);
   font-size: 0.9rem;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.punteggio {
-  min-width: 46px;
-  font-weight: 700;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.punteggio-mio {
-  color: var(--testo-2);
-  font-size: 0.85rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Prime tre posizioni: numero in un cerchietto, non dipende solo dal colore. */
+.posizione-top {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--accento);
+  border-radius: 50%;
+  color: var(--testo);
+  font-weight: 700;
 }
 
 .bandiera {

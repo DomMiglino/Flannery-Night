@@ -65,6 +65,7 @@ export async function ranking(env: Env, seasonParam: string | null): Promise<Res
       mvp: r.mvp,
       guidinha: r.guidinha,
       powerScore: r.powerScore,
+      mvpWeight: r.mvpWeightSum,
       formaArrow: r.formaArrow,
       formaScore: r.formaScore,
       rendimento: r.rendimento,

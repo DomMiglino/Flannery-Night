@@ -1,6 +1,5 @@
-// Passo 4: ordinamenti e filtri degli elenchi. Funzioni pure.
-
-export const MODI_ORDINE = ["overall-desc", "overall-asc", "nome"];
+// Passo 4: filtri degli elenchi. Funzioni pure.
+// L'ordinamento delle tabelle vive in ordina.js.
 
 /**
  * @typedef {Object} GiocatoreElenco
@@ -23,36 +22,6 @@ export const MODI_ORDINE = ["overall-desc", "overall-asc", "nome"];
  * @property {Set<string>|null} [votati]
  * @property {string|null} [io]
  */
-
-/**
- * @param {GiocatoreElenco} a
- * @param {GiocatoreElenco} b
- * @param {boolean} decrescente
- */
-function confrontaOverall(a, b, decrescente) {
-  const va = a.overall === null || a.overall === undefined ? null : Number(a.overall);
-  const vb = b.overall === null || b.overall === undefined ? null : Number(b.overall);
-  // Chi non ha voti va sempre in fondo, in entrambi i sensi.
-  if (va === null && vb === null) return a.name.localeCompare(b.name, "it");
-  if (va === null) return 1;
-  if (vb === null) return -1;
-  if (va === vb) return a.name.localeCompare(b.name, "it");
-  return decrescente ? vb - va : va - vb;
-}
-
-/**
- * Ordina per overall decrescente, crescente o per nome.
- * @param {GiocatoreElenco[]} giocatori
- * @param {string} [modo]
- * @returns {GiocatoreElenco[]}
- */
-export function sortPlayers(giocatori, modo = "overall-desc") {
-  const copia = [...(giocatori || [])];
-  if (modo === "nome") {
-    return copia.sort((a, b) => a.name.localeCompare(b.name, "it"));
-  }
-  return copia.sort((a, b) => confrontaOverall(a, b, modo !== "overall-asc"));
-}
 
 function normalizza(testo) {
   return String(testo || "")

@@ -37,12 +37,18 @@ describe("classifica", () => {
     const res = await s.call("/api/ranking");
     expect(res.status).toBe(200);
     expect(res.body.season.id).toBe(1);
-    const rows = res.body.rows as Array<{ id: string; powerScore: number; played: number; guidinha: number }>;
+    const rows = res.body.rows as Array<{ id: string; powerScore: number; played: number; guidinha: number; mvpWeight: number }>;
     expect(rows.length).toBeGreaterThan(5);
-    // Chi non ha mai giocato c'è comunque in classifica.
+    // Chi non ha mai giocato c'�� comunque in classifica.
     expect(rows.map((r) => r.id)).toContain("fake-esterno");
+    for (const r of rows) {
+      expect(typeof r.mvpWeight).toBe("number");
+    }
     for (let i = 1; i < rows.length; i++) {
       expect(rows[i - 1].powerScore).toBeGreaterThanOrEqual(rows[i].powerScore);
+      if (rows[i - 1].powerScore === rows[i].powerScore) {
+        expect(rows[i - 1].mvpWeight).toBeGreaterThanOrEqual(rows[i].mvpWeight);
+      }
     }
     const antonio = rows.find((r) => r.id === "antonio")!;
     expect(antonio.played).toBe(2);
@@ -61,6 +67,7 @@ describe("classifica", () => {
         "guidinha",
         "id",
         "mvp",
+        "mvpWeight",
         "name",
         "ownGoals",
         "played",
