@@ -1,7 +1,7 @@
 // Passo 4: schermata di accesso. Si sceglie il nome, poi il PIN esiste
 // oppure va creato. I messaggi del server si mostrano come arrivano.
 
-import { ApiError, api } from "../api.js";
+import { ApiError, api, nonAutorizzato } from "../api.js";
 import { clear, el } from "../dom.js";
 import { impostaCollegato, prendiReturnTo } from "../state.js";
 
@@ -267,6 +267,12 @@ export async function renderCambiaPin(root, ctx) {
       messaggio.textContent = "PIN cambiato.";
       ctx.navigate("/home", { sostituisci: true });
     } catch (erroreApi) {
+      // Stesso caso del voto: se la sessione è scaduta si torna non
+      // collegati e all'accesso, senza restare a metà schermata.
+      if (nonAutorizzato(erroreApi)) {
+        ctx.sessioneScaduta();
+        return;
+      }
       messaggio.className = "nota-errore";
       messaggio.textContent = erroreApi instanceof ApiError ? erroreApi.message : "Non riesco a cambiare il PIN";
       invia.disabled = false;

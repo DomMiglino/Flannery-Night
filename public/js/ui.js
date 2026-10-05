@@ -91,17 +91,26 @@ export function esiti(stats) {
   });
 }
 
+/**
+ * Toglie l'asterisco di MVP dall'etichetta del rendimento: {testo, mvp}.
+ * "V*" diventa {testo: "V", mvp: true}, "P" resta {testo: "P", mvp: false}.
+ */
+export function separaMvp(etichetta) {
+  const intera = String(etichetta ?? "");
+  const mvp = intera.endsWith("*");
+  return { testo: mvp ? intera.slice(0, -1) : intera, mvp };
+}
+
 /** Le ultime cinque partite: l'asterisco segna l'MVP. */
 export function rendimento(lista) {
   const ul = el("ul", { className: "rendimento" });
   for (const label of lista || []) {
-    const testo = String(label ?? "");
-    const mvp = testo.endsWith("*");
+    const { testo, mvp } = separaMvp(label);
     ul.append(
       el("li", {
         attrs: mvp ? { title: "MVP" } : {},
         children: [
-          el("span", { text: testo.replace("*", ""), attrs: { "aria-hidden": "true" } }),
+          el("span", { text: testo, attrs: { "aria-hidden": "true" } }),
           el("span", {
             className: "solo-lettori",
             text: mvp ? " con MVP" : "",

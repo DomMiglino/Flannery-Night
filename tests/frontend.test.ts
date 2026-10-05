@@ -21,6 +21,9 @@ import { PESI, myOverall, valoriDaVoto, valoriIniziali, median, votiPerTarget } 
 import { clamp, flagUrl, formatDate, formatNumber, formatOverall, formatShortDate, formatVotes, formaLabel, stepValue } from "../public/js/format.js";
 import { filterPlayers, rolesOf, sortPlayers, withAppearances } from "../public/js/lists.js";
 import { guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
+import { ApiError, nonAutorizzato } from "../public/js/api.js";
+import { separaMvp } from "../public/js/ui.js";
+import { dettaglioRiga } from "../public/js/views/classifica.js";
 import { ROLE_WEIGHTS, overallForRole } from "../src/calc";
 
 interface SeiValori {
@@ -347,5 +350,75 @@ describe("partite", () => {
     expect(guidinhaLinea({ playerName: "Antonio", text: "  una frase  " })).toEqual({ nome: "Antonio", testo: "una frase" });
     expect(guidinhaLinea({ playerName: null, text: "qualcosa" })).toBe(null);
     expect(guidinhaLinea({ playerName: "Antonio", text: "" })).toEqual({ nome: "Antonio", testo: "" });
+  });
+});
+
+describe("sessione scaduta", () => {
+  it("il 401 del server vuol dire sessione scaduta, gli altri errori no", () => {
+    expect(nonAutorizzato(new ApiError(401, "Accesso non consentito"))).toBe(true);
+    expect(nonAutorizzato(new ApiError(400, "Richiesta non valida"))).toBe(false);
+    expect(nonAutorizzato(new ApiError(403, "Richiesta non consentita"))).toBe(false);
+    expect(nonAutorizzato(new ApiError(500, "Non riesco a caricare i dati"))).toBe(false);
+    expect(nonAutorizzato(new Error("rete assente"))).toBe(false);
+    expect(nonAutorizzato(null)).toBe(false);
+  });
+});
+
+describe("dettaglio della classifica", () => {
+  const RIGA = {
+    id: "antonio",
+    name: "Antonio",
+    role: "CC",
+    played: 7,
+    V: 4,
+    P: 2,
+    S: 1,
+    goals: 9,
+    ownGoals: 1,
+    mvp: 2,
+    guidinha: 3,
+    rendimento: ["V*", "V", "P", "S*", "V"],
+  };
+
+  it("V-P-S, conteggi e rendimento arrivano dalla riga di /api/ranking", () => {
+    expect(dettaglioRiga(RIGA)).toEqual({
+      vps: "4-2-1",
+      giocate: 7,
+      gol: 9,
+      autogol: 1,
+      mvp: 2,
+      guidinha: 3,
+      rendimento: ["V*", "V", "P", "S*", "V"],
+    });
+  });
+
+  it("i campi mancanti valgono zero e il rendimento resta una lista", () => {
+    expect(dettaglioRiga(null)).toEqual({
+      vps: "0-0-0",
+      giocate: 0,
+      gol: 0,
+      autogol: 0,
+      mvp: 0,
+      guidinha: 0,
+      rendimento: [],
+    });
+    expect(dettaglioRiga({ V: 1 })).toEqual({
+      vps: "1-0-0",
+      giocate: 0,
+      gol: 0,
+      autogol: 0,
+      mvp: 0,
+      guidinha: 0,
+      rendimento: [],
+    });
+  });
+
+  it("l'asterisco segna l'MVP e si toglie dal testo", () => {
+    expect(separaMvp("V*")).toEqual({ testo: "V", mvp: true });
+    expect(separaMvp("S*")).toEqual({ testo: "S", mvp: true });
+    expect(separaMvp("V")).toEqual({ testo: "V", mvp: false });
+    expect(separaMvp("P")).toEqual({ testo: "P", mvp: false });
+    expect(separaMvp("")).toEqual({ testo: "", mvp: false });
+    expect(separaMvp(null)).toEqual({ testo: "", mvp: false });
   });
 });

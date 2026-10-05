@@ -67,4 +67,12 @@ export const api = {
     request("/api/me/pin", { method: "POST", body: { current, new: next, newConfirm: nextConfirm } }),
 };
 
+/**
+ * Vero se l'errore è un 401 del server: la sessione è scaduta o non
+ * vale più e lo stato deve tornare a "non collegato".
+ */
+export function nonAutorizzato(errore) {
+  return errore instanceof ApiError && errore.status === 401;
+}
+
 export const MESSAGGIO_ERRORE = MESSAGGIO_GENERICO;

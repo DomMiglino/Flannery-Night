@@ -1,7 +1,7 @@
 // Passo 4: scheda del giocatore. Esagono in alto, statistiche della stagione
 // scelta e, se sono collegato e non è la mia scheda, la votazione.
 
-import { ApiError, api } from "../api.js";
+import { ApiError, api, nonAutorizzato } from "../api.js";
 import { clear, el } from "../dom.js";
 import { clamp, formatNumber, formatOverall, formatVotes } from "../format.js";
 import { ATTRIBUTI, valoriDaVoto, valoriIniziali, votiPerTarget } from "../ratings.js";
@@ -244,6 +244,12 @@ function renderVotazione(scheda, mediana, mioVoto, ctx, conferma) {
       // Il server rimanda mediane e overall già ricalcolati: si ridisegna.
       await renderScheda(ctx.root, ctx, scheda.id, `Voto salvato. Ora ${formatVotes(risposta.voters)}.`);
     } catch (erroreApi) {
+      // Sessione scaduta durante il voto: si torna non collegati e
+      // all'accesso, senza perdere la pagina in cui si era.
+      if (nonAutorizzato(erroreApi)) {
+        ctx.sessioneScaduta();
+        return;
+      }
       messaggio.className = "nota-errore";
       messaggio.textContent = erroreApi instanceof ApiError ? erroreApi.message : "Non riesco a salvare il voto";
       invia.disabled = false;

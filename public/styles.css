@@ -288,6 +288,36 @@ button {
   grid-template-columns: 30px 24px 1fr auto;
 }
 
+/* Riga di classifica come pulsante: stesso aspetto del link di prima. */
+.voce-pulsante {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--bordo);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+/* Dettaglio aperto sul posto: celle che vanno a capo, mai scroll laterale. */
+.voce-dettaglio {
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid var(--bordo);
+}
+
+.voce-dettaglio[hidden] {
+  display: none;
+}
+
+.voce-link {
+  display: inline-block;
+  margin-top: 10px;
+  min-height: 44px;
+  line-height: 44px;
+  color: var(--accento);
+  font-weight: 600;
+}
+
 .voce-giocatori {
   grid-template-columns: 24px 1fr auto;
 }
