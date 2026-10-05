@@ -53,7 +53,9 @@ export function resolveRoute(pathname, { authed = false, search = "" } = {}) {
   const resta = { authed, season };
 
   if (path === "/") return { redirect: homePath(authed), season };
-  if (path === "/home") return authed ? { name: VISTA.home, season } : { redirect: "/classifica", season };
+  // /home senza accesso va alla pagina di accesso, mai in classifica:
+  // vale per tocco sulla voce Home, link diretto, refresh e indietro.
+  if (path === "/home") return authed ? { name: VISTA.home, season } : { redirect: "/accesso", season };
   if (path === "/classifica") return { name: VISTA.classifica, season };
   if (path === "/giocatori") return { name: VISTA.giocatori, season };
   if (path === "/partite") return { name: VISTA.partite, season };
@@ -77,10 +79,9 @@ function safeDecode(value) {
   }
 }
 
-/** Voci della barra in basso: Home compare solo con l'accesso. */
+/** Voci della barra in basso: sempre quattro, Home punta a /home. */
 export function navItems(authed) {
-  const voci = [];
-  if (authed) voci.push({ name: VISTA.home, href: "/home", label: "Home" });
+  const voci = [{ name: VISTA.home, href: "/home", label: "Home" }];
   voci.push({ name: VISTA.classifica, href: "/classifica", label: "Classifica" });
   voci.push({ name: VISTA.giocatori, href: "/giocatori", label: "Giocatori" });
   voci.push({ name: VISTA.partite, href: "/partite", label: "Partite" });

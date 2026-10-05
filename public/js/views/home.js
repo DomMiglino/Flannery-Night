@@ -8,7 +8,7 @@ import { errore, riepilogo, scheletro } from "../ui.js";
 
 export async function renderHome(root, ctx) {
   if (!ctx.collegato()) {
-    ctx.navigate("/classifica", { sostituisci: true });
+    ctx.navigate("/accesso", { sostituisci: true });
     return;
   }
   clear(root);
@@ -36,7 +36,7 @@ export async function renderHome(root, ctx) {
         flag: scheda.flag,
         mediane: scheda,
         mio: valoriDaVoto(mio),
-        overall: scheda.overall,
+        overallUp: scheda.overallUp,
         voti: scheda.votes,
       }),
     );

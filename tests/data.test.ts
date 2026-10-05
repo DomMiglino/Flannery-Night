@@ -52,6 +52,8 @@ describe("classifica", () => {
         "V",
         "P",
         "S",
+        "avgGoals",
+        "avgPoints",
         "flag",
         "formaArrow",
         "formaScore",
@@ -62,11 +64,42 @@ describe("classifica", () => {
         "name",
         "ownGoals",
         "played",
+        "points",
         "powerScore",
         "rendimento",
         "role",
       ].sort(),
     );
+  });
+
+  it("punti e medie arrivano dal server, coerenti con V/P/S e giocate", async () => {
+    const res = await s.call("/api/ranking");
+    expect(res.status).toBe(200);
+    const rows = res.body.rows as Array<{
+      id: string;
+      played: number;
+      V: number;
+      P: number;
+      goals: number;
+      points: number;
+      avgPoints: number | null;
+      avgGoals: number | null;
+    }>;
+    for (const r of rows) {
+      // Punti: 3 per vinta, 1 per pareggiata. Il browser non ricalcola.
+      expect(r.points).toBe(3 * r.V + r.P);
+      if (r.played > 0) {
+        expect(r.avgPoints).not.toBeNull();
+        expect(r.avgGoals).not.toBeNull();
+        expect(Math.abs(r.avgPoints! * r.played - r.points)).toBeLessThan(0.06);
+        expect(Math.abs(r.avgGoals! * r.played - r.goals)).toBeLessThan(0.06);
+      } else {
+        expect(r.avgPoints).toBeNull();
+        expect(r.avgGoals).toBeNull();
+      }
+    }
+    const antonio = rows.find((r) => r.id === "antonio")!;
+    expect(antonio.points).toBe(3 * antonio.V + antonio.P);
   });
 
   it("season= sceglie la stagione", async () => {
@@ -92,6 +125,18 @@ describe("giocatori", () => {
     const withOverall = rows.filter((r) => r.overall !== null);
     for (let i = 1; i < withOverall.length; i++) {
       expect(withOverall[i - 1].overall!).toBeGreaterThanOrEqual(withOverall[i].overall!);
+    }
+    // L'overall per eccesso arriva dal server ed è coerente con l'overall:
+    // o il ceiling diretto, o uno in più quando l'overall a un decimale
+    // ha nascosto i centesimi (es. 85,04 -> 85,0 -> 86).
+    const rowsUp = res.body.players as Array<{ overall: number | null; overallUp: number | null }>;
+    for (const r of rowsUp) {
+      if (r.overall === null) {
+        expect(r.overallUp).toBeNull();
+      } else {
+        expect([Math.ceil(r.overall), Math.ceil(r.overall) + 1]).toContain(r.overallUp);
+        expect(Number.isInteger(r.overallUp)).toBe(true);
+      }
     }
   });
 

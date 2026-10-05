@@ -112,6 +112,11 @@ body {
   text-overflow: ellipsis;
 }
 
+.marchio-link {
+  color: inherit;
+  text-decoration: none;
+}
+
 .testata-azioni {
   display: flex;
   align-items: center;
@@ -288,38 +293,68 @@ button {
   grid-template-columns: 30px 24px 1fr auto;
 }
 
-/* Riga di classifica come pulsante: stesso aspetto del link di prima. */
-.voce-pulsante {
+/* Tabelle scorrevoli: la pagina non scorre mai, solo il contenitore. */
+.tabella-scorre {
+  overflow-x: auto;
+}
+
+.tabella {
   width: 100%;
-  border: 0;
-  border-bottom: 1px solid var(--bordo);
-  background: none;
-  font: inherit;
-  color: inherit;
+  border-collapse: collapse;
+}
+
+.tabella-descrizione {
+  padding: 4px 10px 8px;
+  color: var(--testo-2);
+  font-size: 0.85rem;
   text-align: left;
 }
 
-/* Dettaglio aperto sul posto: celle che vanno a capo, mai scroll laterale. */
-.voce-dettaglio {
-  padding: 10px 10px 12px;
+.tabella th,
+.tabella td {
+  min-width: 44px;
+  padding: 10px;
   border-bottom: 1px solid var(--bordo);
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
-.voce-dettaglio[hidden] {
-  display: none;
+/* Prima colonna ferma a sinistra, con sfondo pieno e ombra leggera. */
+.tabella thead th:first-child,
+.tabella tbody th[scope="row"] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--superficie);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.12);
 }
 
-.voce-link {
-  display: inline-block;
-  margin-top: 10px;
+.tabella-nome {
+  display: inline-flex;
+  align-items: center;
   min-height: 44px;
-  line-height: 44px;
   color: var(--accento);
   font-weight: 600;
 }
 
+.tabella-numero {
+  font-variant-numeric: tabular-nums;
+}
+
 .voce-giocatori {
   grid-template-columns: 24px 1fr auto;
+}
+
+/* Nomi nell'accesso: solo il nome, intero e a capo, mai troncato. */
+.accesso-voce {
+  display: block;
+}
+
+.accesso-nome {
+  font-weight: 600;
+  white-space: normal;
+  overflow: visible;
 }
 
 .voce-testa {

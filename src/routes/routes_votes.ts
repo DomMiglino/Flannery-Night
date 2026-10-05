@@ -46,5 +46,6 @@ export async function putVote(env: Env, auth: AuthedPlayer, targetId: string, re
     difRea: summary.dif_rea,
     fisPia: summary.fis_pia,
     overall: summary.overall,
+    overallUp: summary.overallUp,
   });
 }

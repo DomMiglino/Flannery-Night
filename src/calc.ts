@@ -40,6 +40,8 @@ export interface RatingSummary {
   dif_rea: number | null;
   fis_pia: number | null;
   overall: number | null;
+  /** Overall per eccesso: il piu' piccolo intero sopra la somma pesata esatta. */
+  overallUp: number | null;
 }
 
 export interface RecentGame {
@@ -120,6 +122,50 @@ export const ROLE_WEIGHTS: Record<string, number[]> = {
   PC: [0.2, 0.4, 0.05, 0.15, 0, 0.2],
 };
 
+/**
+ * Overall per eccesso: il piu' piccolo intero maggiore o uguale alla
+ * somma pesata esatta (85,01 -> 86; 86,00 -> 86). Niente virgola mobile:
+ * pesi in centesimi e valori in millesimi, tutto in aritmetica intera.
+ * Ritorna null se manca un valore.
+ */
+export function ceilOverallForRole(
+  role: string,
+  a: {
+    vel_tuf: number | null;
+    tir_pre: number | null;
+    pass_rin: number | null;
+    dri_rif: number | null;
+    dif_rea: number | null;
+    fis_pia: number | null;
+  },
+): number | null {
+  const values = [a.vel_tuf, a.tir_pre, a.pass_rin, a.dri_rif, a.dif_rea, a.fis_pia];
+  if (values.some((v) => v == null)) return null;
+  const milli = (values as number[]).map((v) => Math.round(v * 1000));
+  const weights = ROLE_WEIGHTS[role];
+  if (!weights) {
+    const sum = milli.reduce((x, y) => x + y, 0);
+    return Math.floor((sum + 5999) / 6000);
+  }
+  let total = 0;
+  for (let i = 0; i < 6; i++) total += Math.round(weights[i] * 100) * milli[i];
+  return Math.floor((total + 99999) / 100000);
+}
+
+/** Punti stagionali: 3 per vinta, 1 per pareggiata. */
+export function puntiStagione(vinte: number, pareggiate: number): number {
+  return 3 * vinte + pareggiate;
+}
+
+/**
+ * Media per partita a un decimale half-up (come round1_).
+ * Null con zero giocate: in classifica quelle righe non si mostrano.
+ */
+export function mediaPerPartita(totale: number, giocate: number): number | null {
+  if (!Number.isFinite(totale) || !Number.isFinite(giocate) || giocate <= 0) return null;
+  return round1(totale / giocate);
+}
+
 /** Come getMedians_ in Code.gs per un singolo giocatore. */
 export function summarizeVotes(role: string, rows: VoteRow[]): RatingSummary {
   if (rows.length === 0) {
@@ -132,6 +178,7 @@ export function summarizeVotes(role: string, rows: VoteRow[]): RatingSummary {
       dif_rea: null,
       fis_pia: null,
       overall: null,
+      overallUp: null,
     };
   }
   const med = {
@@ -142,7 +189,7 @@ export function summarizeVotes(role: string, rows: VoteRow[]): RatingSummary {
     dif_rea: median(rows.map((r) => r.dif_rea)),
     fis_pia: median(rows.map((r) => r.fis_pia)),
   };
-  return { voters: rows.length, ...med, overall: overallForRole(role, med) };
+  return { voters: rows.length, ...med, overall: overallForRole(role, med), overallUp: ceilOverallForRole(role, med) };
 }
 
 function teamsOf(match: CalcMatch): string[] {

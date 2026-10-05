@@ -17,13 +17,13 @@ import {
   valuesInOrder,
 } from "../public/js/hexagon.js";
 import { activeNav, homePath, navItems, needsSeason, normalizePath, resolveRoute, seasonFromSearch, withSeason } from "../public/js/routes.js";
-import { PESI, myOverall, valoriDaVoto, valoriIniziali, median, votiPerTarget } from "../public/js/ratings.js";
-import { clamp, flagUrl, formatDate, formatNumber, formatOverall, formatShortDate, formatVotes, formaLabel, stepValue } from "../public/js/format.js";
+import { PESI, etichettePerRuolo, myOverall, valoriDaVoto, valoriIniziali, median, votiPerTarget } from "../public/js/ratings.js";
+import { clamp, flagUrl, formatDate, formatNumber, formatOverall, formatOverallUp, formatShortDate, formatVotes, formaLabel, stepValue } from "../public/js/format.js";
 import { filterPlayers, rolesOf, sortPlayers, withAppearances } from "../public/js/lists.js";
 import { guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
-import { dettaglioRiga } from "../public/js/views/classifica.js";
+import { testoRendimento } from "../public/js/views/classifica.js";
 import { ROLE_WEIGHTS, overallForRole } from "../src/calc";
 
 interface SeiValori {
@@ -73,14 +73,20 @@ describe("percorsi", () => {
     expect(scelta.playerId).toBe("antonio rossi");
   });
 
-  it("home e cambia PIN senza accesso tornano a una sezione pubblica", () => {
-    expect(resolveRoute("/home", { authed: false }).redirect).toBe("/classifica");
+  it("/home senza accesso porta all'accesso, mai in classifica", () => {
+    expect(resolveRoute("/home", { authed: false }).redirect).toBe("/accesso");
     expect(resolveRoute("/accesso/cambia", { authed: false }).redirect).toBe("/accesso");
   });
 
   it("con accesso home si vede e /accesso rimanda a home", () => {
     expect(resolveRoute("/home", { authed: true }).name).toBe("home");
     expect(resolveRoute("/accesso", { authed: true }).redirect).toBe("/home");
+  });
+
+  it("dopo il login si atterra su /home e la voce Home punta a /home", () => {
+    expect(homePath(true)).toBe("/home");
+    expect(navItems(false).find((v) => v.name === "home")?.href).toBe("/home");
+    expect(navItems(true).find((v) => v.name === "home")?.href).toBe("/home");
   });
 
   it("un indirizzo sconosciuto torna alla sezione giusta", () => {
@@ -99,8 +105,8 @@ describe("percorsi", () => {
     expect(seasonFromSearch("?stagione=abc")).toBe(null);
   });
 
-  it("la barra ha quattro voci con l'accesso e tre senza", () => {
-    expect(navItems(false).map((v) => v.href)).toEqual(["/classifica", "/giocatori", "/partite"]);
+  it("la barra ha sempre quattro voci, anche senza accesso", () => {
+    expect(navItems(false).map((v) => v.href)).toEqual(["/home", "/classifica", "/giocatori", "/partite"]);
     expect(navItems(true).map((v) => v.href)).toEqual(["/home", "/classifica", "/giocatori", "/partite"]);
   });
 
@@ -172,16 +178,23 @@ describe("esagono", () => {
     expect(valuesInOrder(null)).toEqual([0, 0, 0, 0, 0, 0]);
   });
 
-  it("le etichette stanno fuori dal raggio e hanno un allineamento", () => {
-    const posizioni = labelPositions();
-    expect(posizioni).toHaveLength(6);
-    for (const posizione of posizioni) {
-      expect(posizione.sopra.testo).toBeTruthy();
-      expect(posizione.sotto.testo).toBeTruthy();
-      expect(["start", "middle", "end"]).toContain(posizione.sopra.ancora);
-      const distanza = Math.hypot(posizione.sopra.x - GEOMETRIA.cx, posizione.sopra.y - GEOMETRIA.cy);
-      expect(distanza).toBeGreaterThan(GEOMETRIA.r);
+  it("una sola etichetta per asse, fuori dal raggio e allineata", () => {
+    for (const ruolo of [null, "CC", "P"]) {
+      const posizioni = labelPositions(ruolo);
+      expect(posizioni).toHaveLength(6);
+      for (const posizione of posizioni) {
+        expect(posizione.testo).toBeTruthy();
+        expect(["start", "middle", "end"]).toContain(posizione.ancora);
+        const distanza = Math.hypot(posizione.x - GEOMETRIA.cx, posizione.y - GEOMETRIA.cy);
+        expect(distanza).toBeGreaterThan(GEOMETRIA.r);
+      }
     }
+  });
+
+  it("il portiere vede la variante da portiere, gli altri quella base", () => {
+    expect(labelPositions("P").map((p) => p.testo)).toEqual(["TUF", "PRE", "RIN", "RIF", "REA", "PIA"]);
+    expect(labelPositions("CC").map((p) => p.testo)).toEqual(["VEL", "TIR", "PASS", "DRI", "DIF", "FIS"]);
+    expect(labelPositions().map((p) => p.testo)).toEqual(["VEL", "TIR", "PASS", "DRI", "DIF", "FIS"]);
   });
 });
 
@@ -364,53 +377,11 @@ describe("sessione scaduta", () => {
   });
 });
 
-describe("dettaglio della classifica", () => {
-  const RIGA = {
-    id: "antonio",
-    name: "Antonio",
-    role: "CC",
-    played: 7,
-    V: 4,
-    P: 2,
-    S: 1,
-    goals: 9,
-    ownGoals: 1,
-    mvp: 2,
-    guidinha: 3,
-    rendimento: ["V*", "V", "P", "S*", "V"],
-  };
-
-  it("V-P-S, conteggi e rendimento arrivano dalla riga di /api/ranking", () => {
-    expect(dettaglioRiga(RIGA)).toEqual({
-      vps: "4-2-1",
-      giocate: 7,
-      gol: 9,
-      autogol: 1,
-      mvp: 2,
-      guidinha: 3,
-      rendimento: ["V*", "V", "P", "S*", "V"],
-    });
-  });
-
-  it("i campi mancanti valgono zero e il rendimento resta una lista", () => {
-    expect(dettaglioRiga(null)).toEqual({
-      vps: "0-0-0",
-      giocate: 0,
-      gol: 0,
-      autogol: 0,
-      mvp: 0,
-      guidinha: 0,
-      rendimento: [],
-    });
-    expect(dettaglioRiga({ V: 1 })).toEqual({
-      vps: "1-0-0",
-      giocate: 0,
-      gol: 0,
-      autogol: 0,
-      mvp: 0,
-      guidinha: 0,
-      rendimento: [],
-    });
+describe("tabella della classifica", () => {
+  it("il rendimento diventa una riga di testo con la stella", () => {
+    expect(testoRendimento(["V*", "V", "P", "S*", "V"])).toBe("V★ V P S★ V");
+    expect(testoRendimento([])).toBe("");
+    expect(testoRendimento(null)).toBe("");
   });
 
   it("l'asterisco segna l'MVP e si toglie dal testo", () => {
@@ -420,5 +391,42 @@ describe("dettaglio della classifica", () => {
     expect(separaMvp("P")).toEqual({ testo: "P", mvp: false });
     expect(separaMvp("")).toEqual({ testo: "", mvp: false });
     expect(separaMvp(null)).toEqual({ testo: "", mvp: false });
+  });
+});
+
+describe("etichette per ruolo", () => {
+  it("il portiere usa la variante da portiere, gli altri quella base", () => {
+    expect(etichettePerRuolo("P").map((e) => e.sigla)).toEqual(["TUF", "PRE", "RIN", "RIF", "REA", "PIA"]);
+    for (const ruolo of ["DC", "DL", "CC", "CL", "PC"]) {
+      expect(etichettePerRuolo(ruolo).map((e) => e.sigla)).toEqual(["VEL", "TIR", "PASS", "DRI", "DIF", "FIS"]);
+    }
+  });
+
+  it("ogni sigla ha il suo significato dal glossario, mai inventato", () => {
+    const significati = Object.fromEntries(etichettePerRuolo("CC").map((e) => [e.sigla, e.significato]));
+    expect(significati).toEqual({
+      VEL: "Velocità",
+      TIR: "Tiro",
+      PASS: "Passaggio",
+      DRI: "DRI",
+      DIF: "Difesa",
+      FIS: "Fisico",
+    });
+    const portiere = Object.fromEntries(etichettePerRuolo("P").map((e) => [e.sigla, e.significato]));
+    expect(portiere).toEqual({
+      TUF: "Tuffo",
+      PRE: "Presa",
+      RIN: "Rinvio",
+      RIF: "Riflessi",
+      REA: "Reattività",
+      PIA: "Piazzamento",
+    });
+  });
+
+  it("l'overall per eccesso si mostra intero, o col trattino", () => {
+    expect(formatOverallUp(86)).toBe("86");
+    expect(formatOverallUp(0)).toBe("0");
+    expect(formatOverallUp(null)).toBe("—");
+    expect(formatOverallUp(undefined)).toBe("—");
   });
 });

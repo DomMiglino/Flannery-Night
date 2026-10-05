@@ -131,6 +131,10 @@ describe("voto", () => {
     const sei = mine.body.votes.find((v: { targetId: string }) => v.targetId === "fake-sei");
     expect(sei.targetName).toBe("Fake Sei");
     expect(sei.velTuf).toBe(40);
+    // Fake Sei è CL: 0,3*40 + 0,1*41 + 0,2*42 + 0,25*43 + 0,05*44 + 0,1*45
+    // = 41,95 esatti, per eccesso 42. Il browser non calcola niente.
+    expect(typeof sei.myOverall).toBe("number");
+    expect(sei.myOverallUp).toBe(42);
 
     // Le votazioni di altri non si vedono.
     const other = await s.call("/api/me/votes", { cookie: await asPlayer("fake-otto", PIN.fakeOtto) });
@@ -195,6 +199,7 @@ describe("voto", () => {
       "driRif",
       "fisPia",
       "overall",
+      "overallUp",
       "passRin",
       "targetId",
       "tirPre",

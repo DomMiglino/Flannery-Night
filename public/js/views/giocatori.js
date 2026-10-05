@@ -5,11 +5,21 @@
 
 import { ApiError, api } from "../api.js";
 import { clear, el, linkInterno } from "../dom.js";
-import { formatOverall, formatNumber } from "../format.js";
 import { filterPlayers, rolesOf, sortPlayers } from "../lists.js";
-import { myOverall, votiPerTarget } from "../ratings.js";
+import { votiPerTarget } from "../ratings.js";
 import { withSeason } from "../routes.js";
-import { bandiera, errore, forma, scheletro, titolo } from "../ui.js";
+import { bandiera, errore, scheletro, titolo } from "../ui.js";
+
+/** Mediana come arriva dall'API (può avere un decimale); "—" senza voti. */
+function testoMediana(valore) {
+  if (valore === null || valore === undefined) return "—";
+  return Number.isInteger(valore) ? String(valore) : String(valore).replace(".", ",");
+}
+
+/** Overall per eccesso già calcolato dal server; "—" senza voti. */
+function testoOverallUp(valore) {
+  return valore === null || valore === undefined ? "—" : String(valore);
+}
 
 export async function renderGiocatori(root, ctx) {
   clear(root);
@@ -18,7 +28,6 @@ export async function renderGiocatori(root, ctx) {
 
   let giocatori;
   let votiMiei = [];
-  let frecce = new Map();
 
   try {
     giocatori = (await api.players()).players || [];
@@ -27,15 +36,6 @@ export async function renderGiocatori(root, ctx) {
     root.append(titolo("Giocatori"));
     root.append(errore("Non riesco a caricare i dati", () => renderGiocatori(root, ctx)));
     return;
-  }
-
-  try {
-    // La freccia di forma arriva dalla classifica pubblica e si vede
-    // anche senza accesso.
-    const classifica = await api.ranking(ctx.stagione());
-    frecce = new Map((classifica.rows || []).map((r) => [r.id, r.formaArrow]));
-  } catch (erroreApi) {
-    if (erroreApi instanceof ApiError && erroreApi.status === 401) ctx.sessioneScaduta();
   }
 
   if (ctx.collegato()) {
@@ -53,8 +53,6 @@ export async function renderGiocatori(root, ctx) {
   const filtro = { query: "", role: "", soloDaVotare: false, ordine: "overall-desc" };
 
   const contenitore = el("div");
-  const elenco = el("ul", { className: "elenco" });
-  contenitore.append(elenco);
 
   const ricerca = el("input", {
     className: "testo",
@@ -112,59 +110,82 @@ export async function renderGiocatori(root, ctx) {
   }
 
   function disegna() {
+    const collegato = ctx.collegato();
     const votati = new Set(mioIndice.keys());
     let elencoGiocatori = filterPlayers(giocatori, {
       query: filtro.query,
       role: filtro.role,
       votati: filtro.soloDaVotare ? votati : null,
     });
+    // L'ordinamento usa il valore esatto; quello mostrato è per eccesso.
     elencoGiocatori = sortPlayers(elencoGiocatori, filtro.ordine);
 
     contatore.textContent = `${elencoGiocatori.length} di ${giocatori.length} giocatori`;
-    clear(elenco);
+    clear(contenitore);
 
     if (elencoGiocatori.length === 0) {
-      elenco.append(el("li", { className: "nota", text: "Nessun giocatore corrisponde ai filtri." }));
+      contenitore.append(el("p", { className: "nota", text: "Nessun giocatore corrisponde ai filtri." }));
       return;
     }
 
+    const intestazioni = ["Giocatore", "Ruolo", "Overall", "VEL/TUF", "TIR/PRE", "PASS/RIN", "DRI/RIF", "DIF/REA", "FIS/PIA"];
+    if (collegato) intestazioni.push("Mio");
+    const corpo = el("tbody");
     for (const giocatore of elencoGiocatori) {
       const bandierina = bandiera(giocatore.flag);
-      const freccia = frecce.get(giocatore.id);
+      const nome = el("a", {
+        className: "tabella-nome",
+        attrs: { href: withSeason(`/giocatori/${encodeURIComponent(giocatore.id)}`, ctx.stagione()) },
+        text: giocatore.name,
+      });
+      linkInterno(nome, ctx.navigate);
       const mio = mioIndice.get(giocatore.id);
-      const mioValue = ctx.collegato() ? myOverall(giocatore.role, mio) : null;
-
-      const numeri = el("span", { className: "voce-numeri" });
-      if (freccia) numeri.append(forma(freccia));
-      numeri.append(el("span", { className: "punteggio", text: formatOverall(giocatore.overall), attrs: { "aria-label": `Overall ricevuto ${formatOverall(giocatore.overall)}` } }));
-      if (ctx.collegato()) {
-        numeri.append(
-          el("span", {
-            className: "punteggio-mio",
-            text: mioValue === null ? "mio —" : `mio ${formatNumber(mioValue, 1)}`,
-            attrs: { "aria-label": mioValue === null ? "Non hai ancora votato questo giocatore" : `Il mio overall è ${formatNumber(mioValue, 1)}` },
+      const celle = [
+        el("th", { attrs: { scope: "row" }, children: [bandierina, nome] }),
+        el("td", { text: giocatore.role }),
+        el("td", {
+          className: "tabella-numero",
+          text: testoOverallUp(giocatore.overallUp),
+          attrs: { "aria-label": `Overall ricevuto ${testoOverallUp(giocatore.overallUp)}` },
+        }),
+        el("td", { className: "tabella-numero", text: testoMediana(giocatore.velTuf) }),
+        el("td", { className: "tabella-numero", text: testoMediana(giocatore.tirPre) }),
+        el("td", { className: "tabella-numero", text: testoMediana(giocatore.passRin) }),
+        el("td", { className: "tabella-numero", text: testoMediana(giocatore.driRif) }),
+        el("td", { className: "tabella-numero", text: testoMediana(giocatore.difRea) }),
+        el("td", { className: "tabella-numero", text: testoMediana(giocatore.fisPia) }),
+      ];
+      if (collegato) {
+        const mioUp = mio ? mio.myOverallUp : null;
+        celle.push(
+          el("td", {
+            className: "tabella-numero",
+            text: testoOverallUp(mioUp),
+            attrs: { "aria-label": mioUp === null || mioUp === undefined ? "Non hai ancora votato questo giocatore" : `Il mio overall è ${mioUp}` },
           }),
         );
       }
+      corpo.append(el("tr", { children: celle }));
+    }
 
-      const link = el("a", {
-        className: "voce voce-giocatori",
-        attrs: { href: withSeason(`/giocatori/${encodeURIComponent(giocatore.id)}`, ctx.stagione()) },
+    contenitore.append(
+      el("div", {
+        className: "tabella-scorre",
+        attrs: { tabindex: "0", role: "region", "aria-label": "Tabella scorrevole" },
         children: [
-          bandierina,
-          el("span", {
-            className: "voce-testa",
+          el("table", {
+            className: "tabella",
             children: [
-              el("span", { className: "voce-nome", text: giocatore.name }),
-              el("span", { className: "voce-sottotitolo", text: giocatore.role }),
+              el("caption", { className: "tabella-descrizione", text: "Giocatori: ruolo, overall per eccesso e mediane dei voti ricevuti." }),
+              el("thead", {
+                children: [el("tr", { children: intestazioni.map((t) => el("th", { attrs: { scope: "col" }, text: t })) })],
+              }),
+              corpo,
             ],
           }),
-          numeri,
         ],
-      });
-      linkInterno(link, ctx.navigate);
-      elenco.append(el("li", { children: [link] }));
-    }
+      }),
+    );
   }
 
   clear(root);

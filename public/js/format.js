@@ -13,6 +13,14 @@ export function formatOverall(value) {
   return value === null || value === undefined ? "—" : formatNumber(value, 1);
 }
 
+/**
+ * Overall per eccesso già calcolato dal server: si mostra com'è
+ * (intero), senza arrotondare nel browser; "—" senza voti.
+ */
+export function formatOverallUp(value) {
+  return value === null || value === undefined ? "—" : String(value);
+}
+
 /** Un voto, due voti, tre voti. */
 export function formatVotes(count) {
   return `${count} ${count === 1 ? "voto" : "voti"}`;

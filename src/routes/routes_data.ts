@@ -1,7 +1,7 @@
 // PASSO 3: rotte pubbliche di lettura. Nessun accesso richiesto.
 // Escono solo mediane e conteggi: mai un voto singolo, mai salt o hash.
 
-import { playerSeason, publishedSorted, summarizeVotes, teamOutcomes, teamScores, type CalcMatch, type RatingSummary } from "../calc";
+import { mediaPerPartita, playerSeason, publishedSorted, puntiStagione, summarizeVotes, teamOutcomes, teamScores, type CalcMatch, type RatingSummary } from "../calc";
 import type { Env } from "../env";
 import { fail, json, MSG } from "../http";
 import {
@@ -24,6 +24,7 @@ function medianFields(summary: RatingSummary) {
     difRea: summary.dif_rea,
     fisPia: summary.fis_pia,
     overall: summary.overall,
+    overallUp: summary.overallUp,
   };
 }
 
@@ -67,6 +68,9 @@ export async function ranking(env: Env, seasonParam: string | null): Promise<Res
       formaArrow: r.formaArrow,
       formaScore: r.formaScore,
       rendimento: r.rendimento,
+      points: puntiStagione(r.V, r.P),
+      avgPoints: mediaPerPartita(r.points, r.played),
+      avgGoals: mediaPerPartita(r.goals, r.played),
     })),
   });
 }

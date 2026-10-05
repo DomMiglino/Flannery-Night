@@ -62,11 +62,10 @@ export async function renderAccesso(root, ctx) {
     }
     for (const giocatore of filtrati) {
       const riga = el("li", {
-        className: "voce voce-giocatori",
+        className: "voce accesso-voce",
         attrs: { tabindex: "0", role: "button" },
         children: [
-          el("span", { className: "voce-nome", text: giocatore.name }),
-          el("span", { className: "voce-sottotitolo", text: giocatore.role }),
+          el("span", { className: "accesso-nome", text: giocatore.name }),
         ],
         on: { click: () => scegli(giocatore) },
       });
@@ -95,7 +94,18 @@ export async function renderAccesso(root, ctx) {
 
   function disegnaPin() {
     clear(box);
-    box.append(el("h2", { className: "titolo-sezione", text: scelta.name }));
+    box.append(el("h2", { className: "titolo-sezione", text: "Accedi" }));
+    if (haPin) {
+      box.append(el("p", { className: "nota", text: `Ciao ${scelta.name}. Inserisci il tuo PIN di 6 cifre.` }));
+      box.append(el("p", { className: "nota", text: "Hai dimenticato il PIN? Chiedi a un admin di azzerarlo." }));
+    } else {
+      box.append(
+        el("p", {
+          className: "nota",
+          text: `Ciao ${scelta.name}. È la prima volta: scegli un PIN di 6 cifre. Lo userai ogni volta che accedi per votare. Scrivilo due volte e non condividerlo.`,
+        }),
+      );
+    }
     messaggio.textContent = "";
     box.append(messaggio);
 
@@ -105,7 +115,6 @@ export async function renderAccesso(root, ctx) {
     if (!haPin) {
       const conferma = campoPin("pin-conferma", "Ripeti il PIN");
       campi.push(conferma);
-      box.append(el("p", { className: "nota", text: "Non hai ancora un PIN: creane uno di 6 cifre." }));
     }
 
     const invia = el("button", {
@@ -181,6 +190,7 @@ export async function renderAccesso(root, ctx) {
     haPin = false;
     clear(box);
     box.append(el("h2", { className: "titolo-sezione", text: "Accedi" }));
+    box.append(el("p", { className: "nota", text: "1. Scegli il tuo nome dall'elenco (puoi cercarlo scrivendo)." }));
     box.append(messaggio);
     box.append(
       el("div", { className: "campo", children: [el("label", { className: "campo-etichetta", text: "Il tuo nome", attrs: { for: "cerca" } }), ricerca] }),

@@ -4,17 +4,8 @@
 import { ApiError, api, nonAutorizzato } from "../api.js";
 import { clear, el } from "../dom.js";
 import { clamp, formatNumber, formatOverall, formatVotes } from "../format.js";
-import { ATTRIBUTI, valoriDaVoto, valoriIniziali, votiPerTarget } from "../ratings.js";
+import { ATTRIBUTI, etichettePerRuolo, valoriDaVoto, valoriIniziali, votiPerTarget } from "../ratings.js";
 import { cella, errore, esiti, rendimento, riepilogo, scheletro, titolo } from "../ui.js";
-
-const NOMI_ATTRIBUTI = {
-  velTuf: "Velocità",
-  tirPre: "Tiri",
-  passRin: "Passaggi",
-  driRif: "Conduzione",
-  difRea: "Difesa",
-  fisPia: "Fisico",
-};
 
 export async function renderScheda(root, ctx, playerId, conferma = null) {
   clear(root);
@@ -65,7 +56,7 @@ export async function renderScheda(root, ctx, playerId, conferma = null) {
       flag: scheda.flag,
       mediane: mediana,
       mio: valoriDaVoto(mioVoto),
-      overall: scheda.overall,
+      overallUp: scheda.overallUp,
       voti: scheda.votes,
     }),
   );
@@ -140,6 +131,8 @@ export async function renderScheda(root, ctx, playerId, conferma = null) {
 function renderVotazione(scheda, mediana, mioVoto, ctx, conferma) {
   const salvato = mioVoto !== null;
   const valori = valoriIniziali(mediana, valoriDaVoto(mioVoto));
+  // Un solo nome per attributo: variante da portiere per il ruolo P.
+  const etichette = etichettePerRuolo(scheda.role);
 
   const messaggio = el("p", { className: "nota", attrs: { role: "status" } });
   messaggio.textContent =
@@ -149,7 +142,7 @@ function renderVotazione(scheda, mediana, mioVoto, ctx, conferma) {
   const righe = el("div");
   const campi = {};
 
-  for (const chiave of ATTRIBUTI) {
+  for (const { chiave, sigla, significato } of etichette) {
     const campo = el("input", {
       className: "voto-campo",
       attrs: {
@@ -159,7 +152,7 @@ function renderVotazione(scheda, mediana, mioVoto, ctx, conferma) {
         max: "99",
         step: "1",
         value: String(valori[chiave]),
-        "aria-label": `Il tuo voto per ${NOMI_ATTRIBUTI[chiave]}`,
+        "aria-label": `Il tuo voto per ${significato}`,
       },
       on: {
         input: (evento) => {
@@ -186,7 +179,7 @@ function renderVotazione(scheda, mediana, mioVoto, ctx, conferma) {
       el("div", {
         className: "voto-riga",
         children: [
-          el("span", { className: "voto-nome", text: NOMI_ATTRIBUTI[chiave] }),
+          el("span", { className: "voto-nome", text: sigla, attrs: { title: significato } }),
           el("span", { className: "voto-mediana", text: `mediana ${mediana[chiave] === null ? "—" : formatOverall(mediana[chiave])}` }),
           el("span", {
             className: "voto-controlli",
@@ -194,14 +187,14 @@ function renderVotazione(scheda, mediana, mioVoto, ctx, conferma) {
               el("button", {
                 className: "voto-passo",
                 text: "−",
-                attrs: { type: "button", "aria-label": `Un punto in meno a ${NOMI_ATTRIBUTI[chiave]}` },
+                attrs: { type: "button", "aria-label": `Un punto in meno a ${significato}` },
                 on: { click: () => sposta(-1) },
               }),
               campo,
               el("button", {
                 className: "voto-passo",
                 text: "+",
-                attrs: { type: "button", "aria-label": `Un punto in più a ${NOMI_ATTRIBUTI[chiave]}` },
+                attrs: { type: "button", "aria-label": `Un punto in più a ${significato}` },
                 on: { click: () => sposta(1) },
               }),
             ],

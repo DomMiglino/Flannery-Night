@@ -58,29 +58,23 @@ export function ringPoints(level, geo = GEOMETRIA) {
 }
 
 /**
- * Posizione delle etichette: la metà "sopra" sta oltre il raggio massimo,
- * la metà "sotto" sta dentro, verso il centro. Ritorna anche l'allineamento
+ * Posizione delle etichette, una sola per asse: la variante da portiere
+ * (TUF, PRE, ...) per il ruolo P, quella base (VEL, TIR, ...) per gli altri.
+ * L'etichetta sta oltre il raggio massimo; ritorna anche l'allineamento
  * del testo, così le etichette non escono dal riquadro.
+ * @param {string|null} [role]
  */
-export function labelPositions(geo = GEOMETRIA) {
+export function labelPositions(role = null, geo = GEOMETRIA) {
   const fuori = 15;
   return ASSI.map((asse, i) => {
     const esterno = axisPoint(i, 100, geo);
-    const interno = axisPoint(i, 0, geo);
     const angolo = axisAngle(i);
-    const sopra = {
+    return {
       x: esterno.x + fuori * Math.cos(angolo),
       y: esterno.y + fuori * Math.sin(angolo),
-      testo: asse.sopra,
+      testo: role === "P" ? asse.sotto : asse.sopra,
       ancora: ancoraPer(esterno.x, geo.cx),
     };
-    const dentro = {
-      x: interno.x + 14 * Math.cos(angolo),
-      y: interno.y + 14 * Math.sin(angolo),
-      testo: asse.sotto,
-      ancora: ancoraPer(interno.x, geo.cx),
-    };
-    return { sopra, sotto: dentro };
   });
 }
 

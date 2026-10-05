@@ -26,6 +26,43 @@ export const ATTRIBUTI = ["velTuf", "tirPre", "passRin", "driRif", "difRea", "fi
  * @property {number|null} [fisPia]
  */
 
+/**
+ * Un solo nome per attributo, in base al ruolo: i portieri (P) usano la
+ * variante da portiere, tutti gli altri quella base. Coppie base/portiere:
+ * VEL/TUF, TIR/PRE, PASS/RIN, DRI/RIF, DIF/REA, FIS/PIA.
+ */
+export const NOMI_BASE = ["VEL", "TIR", "PASS", "DRI", "DIF", "FIS"];
+export const NOMI_PORTIERE = ["TUF", "PRE", "RIN", "RIF", "REA", "PIA"];
+
+/**
+ * Significati estesi dal glossario del vecchio sito (public-v2.js nel
+ * branch main): Velocità/Tuffo, Tiro/Presa, Passaggio/Rinvio,
+ * Riflessi, Difesa/Reattività, Fisico/Piazzamento.
+ */
+export const SIGNIFICATI = {
+  VEL: "Velocità",
+  TUF: "Tuffo",
+  TIR: "Tiro",
+  PRE: "Presa",
+  PASS: "Passaggio",
+  RIN: "Rinvio",
+  DRI: "DRI",
+  RIF: "Riflessi",
+  DIF: "Difesa",
+  REA: "Reattività",
+  FIS: "Fisico",
+  PIA: "Piazzamento",
+};
+
+/**
+ * Le sei etichette per un ruolo: [{chiave, sigla, significato}].
+ * @param {string} role
+ */
+export function etichettePerRuolo(role) {
+  const nomi = role === "P" ? NOMI_PORTIERE : NOMI_BASE;
+  return ATTRIBUTI.map((chiave, i) => ({ chiave, sigla: nomi[i], significato: SIGNIFICATI[nomi[i]] }));
+}
+
 /** Ordine degli assi come in src/calc.ts: VEL/TUF, TIR/PRE, PASS/RIN, DRI/RIF, DIF/REA, FIS/PIA. */
 export const PESI = {
   P: [0.25, 0.15, 0.1, 0.25, 0.1, 0.15],

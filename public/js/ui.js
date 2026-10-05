@@ -1,7 +1,7 @@
 // Passo 4: pezzi di interfaccia usati da più viste.
 
 import { clear, el, svg } from "./dom.js";
-import { flagUrl, formatOverall, formatVotes, formaClasse, formaLabel } from "./format.js";
+import { flagUrl, formatOverallUp, formatVotes, formaClasse, formaLabel } from "./format.js";
 import { ANELLI, ASSI, GEOMETRIA, labelPositions, polygonPoints, ringPoints, valuesInOrder } from "./hexagon.js";
 
 /** Titolo di sezione. */
@@ -124,11 +124,13 @@ export function rendimento(lista) {
 }
 
 /**
- * Esagono dei sei assi. Con zero voti ricevuti non si disegna nessun
- * poligono e compare la scritta di attesa. Se ho un mio voto, in verde
- * tratteggiato sopra le mediane.
+ * Esagono dei sei assi. Un solo nome per asse (variante da portiere per
+ * il ruolo P). Con zero voti ricevuti non si disegna nessun poligono e
+ * compare la scritta di attesa. Se ho un mio voto, in verde tratteggiato
+ * sopra le mediane. L'overall è quello per eccesso già calcolato dal
+ * server: il browser non arrotonda niente.
  */
-export function esagono({ mediane, mio, overall = null, voti = 0 }) {
+export function esagono({ mediane, mio, overallUp = null, voti = 0, ruolo = "" }) {
   const valori = valuesInOrder(mediane);
   const haMediane = voti > 0;
   const haMio = mio && ATTRIBUTI_CON_VALORI.every((k) => Number.isFinite(Number(mio[k])));
@@ -143,14 +145,13 @@ export function esagono({ mediane, mio, overall = null, voti = 0 }) {
   if (haMio) {
     elementi.push(svg("polygon", { class: "esagono-mio", points: polygonPoints(valuesInOrder(mio)) }));
   }
-  for (const posizione of labelPositions()) {
-    elementi.push(svg("text", { class: "esagono-etichetta", x: posizione.sopra.x, y: posizione.sopra.y, "text-anchor": posizione.sopra.ancora }, [posizione.sopra.testo]));
-    elementi.push(svg("text", { class: "esagono-etichetta", x: posizione.sotto.x, y: posizione.sotto.y, "text-anchor": posizione.sotto.ancora }, [posizione.sotto.testo]));
+  for (const posizione of labelPositions(ruolo)) {
+    elementi.push(svg("text", { class: "esagono-etichetta", x: posizione.x, y: posizione.y, "text-anchor": posizione.ancora }, [posizione.testo]));
   }
   if (haMediane) {
     elementi.push(
       svg("text", { class: "esagono-overall", x: GEOMETRIA.cx, y: GEOMETRIA.cy, "text-anchor": "middle", "dominant-baseline": "middle" }, [
-        formatOverall(overall),
+        formatOverallUp(overallUp),
       ]),
     );
   } else {
@@ -168,7 +169,7 @@ export function esagono({ mediane, mio, overall = null, voti = 0 }) {
       viewBox: `0 0 ${GEOMETRIA.cx * 2} ${GEOMETRIA.cy * 2 + 6}`,
       role: "img",
       "aria-label": haMediane
-        ? `Esagono delle sei caratteristiche, media ricevuta ${formatOverall(overall)} con ${formatVotes(voti)}`
+        ? `Esagono delle sei caratteristiche, media ricevuta ${formatOverallUp(overallUp)} con ${formatVotes(voti)}`
         : "Esagono delle sei caratteristiche, nessun voto ricevuto",
     },
     elementi,
@@ -178,7 +179,7 @@ export function esagono({ mediane, mio, overall = null, voti = 0 }) {
 const ATTRIBUTI_CON_VALORI = ASSI.map((a) => a.chiave);
 
 /** Nome, ruolo, esagono e numero di voti: l'intestazione della scheda. */
-export function riepilogo({ nome, ruolo, flag, mediane, mio, overall, voti }) {
+export function riepilogo({ nome, ruolo, flag, mediane, mio, overallUp, voti }) {
   const bandierina = bandiera(flag);
   const capezzale = el("div", {
     className: "riassunto",
@@ -188,7 +189,7 @@ export function riepilogo({ nome, ruolo, flag, mediane, mio, overall, voti }) {
         children: bandierina ? [bandierina, document.createTextNode(` ${nome}`)] : [document.createTextNode(String(nome))],
       }),
       el("p", { className: "riassunto-ruolo", text: String(ruolo || "") }),
-      esagono({ mediane, mio, overall, voti }),
+      esagono({ mediane, mio, overallUp, voti, ruolo }),
       voti > 0 ? nota(formatVotes(voti), "nota") : nota("Ancora nessun voto ricevuto", "nota"),
     ],
   });

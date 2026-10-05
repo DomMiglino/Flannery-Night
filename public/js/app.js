@@ -34,6 +34,7 @@ function prendiElementi() {
   dom.stagioneCampo = document.getElementById("stagione-campo");
   dom.stagione = document.getElementById("stagione");
   dom.pulsanteAccount = document.getElementById("pulsante-account");
+  dom.titoloSito = document.getElementById("titolo-sito");
   dom.menu = document.getElementById("menu-account");
   dom.menuTitolo = document.getElementById("menu-titolo");
   dom.voceAccedi = document.getElementById("voce-accedi");
@@ -216,7 +217,13 @@ async function avvia() {
   linkInterno(dom.voceAccedi, (href) => vai(href));
   linkInterno(dom.voceCambia, (href) => vai(href));
 
+  linkInterno(dom.titoloSito, (href) => vai(href));
   dom.pulsanteAccount.addEventListener("click", () => {
+    // Senza accesso niente menu: si va diretti alla pagina di accesso.
+    if (!isCollegato()) {
+      vai("/accesso");
+      return;
+    }
     apriMenu(dom.menu.hidden);
   });
   dom.voceEsci.addEventListener("click", async () => {

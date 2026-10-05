@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  ceilOverallForRole,
   median,
+  mediaPerPartita,
   overallForRole,
+  puntiStagione,
   round1,
   summarizeVotes,
   teamScores,
@@ -72,6 +75,68 @@ describe("overall come overall_ in Code.gs", () => {
   });
   it("manca un valore: null", () => {
     expect(overallForRole("P", { ...all10, vel_tuf: null })).toBeNull();
+  });
+});
+
+describe("overall per eccesso (ceiling intero, aritmetica intera)", () => {
+  const base = { vel_tuf: 86, tir_pre: 86, pass_rin: 86, dri_rif: 86, dif_rea: 86, fis_pia: 86 };
+  it("somma esattamente intera: 86,00 resta 86", () => {
+    for (const r of ["P", "DC", "DL", "CC", "CL", "PC"]) {
+      expect(ceilOverallForRole(r, base)).toBe(86);
+    }
+  });
+  it("86,01 diventa 87", () => {
+    // 0,15 * 86,01 + 0,85 * 86 = 86,0015 con i pesi CC.
+    expect(ceilOverallForRole("CC", { ...base, vel_tuf: 86.01 })).toBe(87);
+  });
+  it("85,99 diventa 86", () => {
+    expect(ceilOverallForRole("CC", { ...base, vel_tuf: 85.99 })).toBe(86);
+  });
+  it("86,25 diventa 87", () => {
+    const quarti = { vel_tuf: 86.25, tir_pre: 86.25, pass_rin: 86.25, dri_rif: 86.25, dif_rea: 86.25, fis_pia: 86.25 };
+    expect(ceilOverallForRole("CC", quarti)).toBe(87);
+    expect(ceilOverallForRole("P", quarti)).toBe(87);
+  });
+  it("coincide col ceiling della somma esatta per ogni ruolo", () => {
+    const valori = { vel_tuf: 79.5, tir_pre: 82, pass_rin: 77.5, dri_rif: 90, dif_rea: 68.5, fis_pia: 84 };
+    for (const r of ["P", "DC", "DL", "CC", "CL", "PC"]) {
+      const esatto = overallForRole(r, valori)!;
+      // L'overall a un decimale non basta: il ceiling va sulla somma esatta.
+      expect(ceilOverallForRole(r, valori)).toBeGreaterThanOrEqual(Math.round(esatto));
+      expect(ceilOverallForRole(r, valori)).toBeLessThanOrEqual(Math.ceil(esatto) + 1);
+    }
+  });
+  it("ruolo ignoto: media semplice per eccesso", () => {
+    const valori = { vel_tuf: 10, tir_pre: 20, pass_rin: 30, dri_rif: 40, dif_rea: 50, fis_pia: 60 };
+    // Media 35 esatta -> 35; con un decimo in più -> 36.
+    expect(ceilOverallForRole("XX", valori)).toBe(35);
+    expect(ceilOverallForRole("XX", { ...valori, vel_tuf: 10.6 })).toBe(36);
+  });
+  it("manca un valore: null", () => {
+    expect(ceilOverallForRole("CC", { ...base, fis_pia: null })).toBeNull();
+  });
+  it("summarizeVotes espone anche l'overall per eccesso", () => {
+    const s = summarizeVotes("CC", [
+      { vel_tuf: 86, tir_pre: 86, pass_rin: 86, dri_rif: 86, dif_rea: 86, fis_pia: 86 },
+    ]);
+    expect(s.voters).toBe(1);
+    expect(s.overall).toBe(86);
+    expect(s.overallUp).toBe(86);
+    expect(summarizeVotes("CC", []).overallUp).toBeNull();
+  });
+});
+
+describe("punti e medie della classifica", () => {
+  it("punti: 3 per vinta, 1 per pareggiata", () => {
+    expect(puntiStagione(4, 2)).toBe(14);
+    expect(puntiStagione(0, 0)).toBe(0);
+  });
+  it("medie a un decimale half-up, null con zero giocate", () => {
+    expect(mediaPerPartita(14, 7)).toBe(2);
+    expect(mediaPerPartita(9, 7)).toBe(1.3);
+    expect(mediaPerPartita(10, 6)).toBe(1.7);
+    expect(mediaPerPartita(5, 0)).toBeNull();
+    expect(mediaPerPartita(0, 0)).toBeNull();
   });
 });
 
