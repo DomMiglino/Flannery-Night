@@ -1,7 +1,7 @@
 // Flannery Night v2 — PASSO 1: calcoli puri per classifica e voti.
 // Solo partite 'published' di una stagione. Nessun accesso a DB o rete.
-// Le formule di mediana e overall riproducono google-apps-script/Code.gs
-// (getMedians_, median_, overall_, round1_) esattamente.
+// Le formule di mediana e overall riproducono esattamente quelle del sito
+// precedente (funzioni round1_, median_, overall_, getMedians_).
 
 export type Role = "P" | "DC" | "DL" | "CC" | "CL" | "PC";
 export type Outcome = "V" | "P" | "S";
@@ -63,13 +63,13 @@ export interface PlayerSeason {
   formaArrow: Arrow;
 }
 
-/** Come round1_ in Code.gs. */
+/** Come round1_ del sito precedente. */
 export function round1(n: number): number {
   return Math.round(Number(n) * 10) / 10;
 }
 
 /**
- * Come median_ in Code.gs: ordina in modo numerico; con conteggio dispari
+ * Come median_ del sito precedente: ordina in modo numerico; con conteggio dispari
  * restituisce il centrale, con conteggio pari la media dei due centrali
  * arrotondata con round1. Ritorna null con zero valori.
  */
@@ -84,7 +84,7 @@ export function median(values: number[]): number | null {
 const ATTR_KEYS = ["vel_tuf", "tir_pre", "pass_rin", "dri_rif", "dif_rea", "fis_pia"] as const;
 
 /**
- * Come overall_ in Code.gs + round1_. Pesi per ruolo nell'ordine
+ * Come overall_ del sito precedente + round1_. Pesi per ruolo nell'ordine
  * VEL/TUF, TIR/PRE, PASS/RIN, DRI/RIF, DIF/REA, FIS/PIA.
  * Ruolo ignoto: media semplice dei sei valori. Ritorna null se manca un valore.
  */
@@ -166,7 +166,7 @@ export function mediaPerPartita(totale: number, giocate: number): number | null 
   return round1(totale / giocate);
 }
 
-/** Come getMedians_ in Code.gs per un singolo giocatore. */
+/** Come getMedians_ del sito precedente per un singolo giocatore. */
 export function summarizeVotes(role: string, rows: VoteRow[]): RatingSummary {
   if (rows.length === 0) {
     return {

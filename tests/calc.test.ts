@@ -27,7 +27,7 @@ const FB = "fake-b";
 const FC = "fake-c";
 const FD = "fake-d";
 
-describe("round1 come Code.gs", () => {
+describe("round1 come nel sito precedente", () => {
   it("arrotonda a un decimale", () => {
     expect(round1(2.45)).toBe(2.5);
     expect(round1(2.44)).toBe(2.4);
@@ -35,7 +35,7 @@ describe("round1 come Code.gs", () => {
   });
 });
 
-describe("mediana come median_ in Code.gs", () => {
+describe("mediana come median_ del sito precedente", () => {
   it("dispari: centrale", () => {
     expect(median([5, 1, 9])).toBe(5);
     expect(median([7])).toBe(7);
@@ -53,7 +53,7 @@ describe("mediana come median_ in Code.gs", () => {
   });
 });
 
-describe("overall come overall_ in Code.gs", () => {
+describe("overall come overall_ del sito precedente", () => {
   const all10 = { vel_tuf: 10, tir_pre: 10, pass_rin: 10, dri_rif: 10, dif_rea: 10, fis_pia: 10 };
   it("tutti 10 -> 10 per ogni ruolo", () => {
     for (const r of ["P", "DC", "DL", "CC", "CL", "PC"]) {
