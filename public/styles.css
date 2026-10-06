@@ -70,7 +70,23 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.45;
+}
+
+/* La finestra non scorre: a farlo è il body, che termina dove comincia la
+   barra in basso. Così la barra scorrevole si ferma sopra le icone e la
+   barra arriva fino all'angolo, senza la fessura che restava a destra. */
+html {
+  overflow: hidden;
+}
+
+body {
   overflow-x: hidden;
+  overflow-y: auto;
+  /* Finestra meno barra, bordo superiore (1px) e area dei pulsanti sullo
+     schermo degli iPhone: il fondo della scorrevole coincide col bordo
+     della barra. La riga dopo usa le altezze dinamiche, dove ci sono. */
+  height: calc(100vh - var(--barra-altezza) - 1px - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - var(--barra-altezza) - 1px - env(safe-area-inset-bottom, 0px));
 }
 
 .solo-lettori {
@@ -355,8 +371,8 @@ button {
   margin-top: 12px;
 }
 
-/* Popup aperto: la pagina sotto resta ferma, su html (propaga al viewport)
-   e su body per sicurezza. */
+/* Popup aperto: la pagina sotto resta ferma. Il body è il contenitore di
+   scorrimento, quindi è lì che si blocca; html è di riserva. */
 html.popup-aperto,
 body.popup-aperto {
   overflow: hidden;

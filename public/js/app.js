@@ -39,6 +39,7 @@ import { renderScheda } from "./views/scheda.js";
 
 const dom = {};
 let rendering = 0;
+let percorsoDisegnato = null;
 
 function prendiElementi() {
   dom.contenuto = document.getElementById("contenuto");
@@ -218,11 +219,23 @@ function apriMenu(apri) {
 
 // ---------- disegno della rotta ----------
 
+/** All'inizio della pagina: la scorrevole è del body, la finestra non si muove. */
+function azzeraScorrimento() {
+  document.body.scrollTop = 0;
+  document.documentElement.scrollTop = 0;
+}
+
 async function disegna() {
   const scelta = resolveRoute(location.pathname, { authed: isCollegato(), search: location.search });
   if (scelta.redirect) {
     vai(scelta.redirect, { sostituisci: true });
     return;
+  }
+  // Una pagina nuova riparte dall'alto; ridisegnare la stessa la lascia dov'era.
+  const percorso = `${location.pathname}${location.search}`;
+  if (percorso !== percorsoDisegnato) {
+    percorsoDisegnato = percorso;
+    azzeraScorrimento();
   }
   leggiStagioneDallUrl();
   disegnaStagioni();
@@ -291,6 +304,7 @@ function titoloPagina(nome) {
 async function avvia() {
   prendiElementi();
   ctx.root = dom.contenuto;
+  history.scrollRestoration = "manual";
 
   for (const nodo of dom.nav.values()) {
     if (nodo) linkInterno(nodo, (href) => vai(withSeason(href.split("?")[0], stagioneCorrente())));
