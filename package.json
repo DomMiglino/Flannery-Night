@@ -10,9 +10,6 @@
     "flags": "node scripts/genera-bandiere.mjs",
     "d1:migrate:local": "wrangler d1 migrations apply DB --local"
   },
-  "dependencies": {
-    "xlsx": "0.18.5"
-  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251001.0",
     "@types/node": "^26.6.4",
