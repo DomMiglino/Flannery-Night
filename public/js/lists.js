@@ -66,6 +66,23 @@ export function rolesOf(giocatori) {
 }
 
 /**
+ * Le due tabelle della pagina Giocatori: i portieri (ruolo P) da una
+ * parte, tutti gli altri ruoli dall'altra. Ogni giocatore finisce in
+ * una sola delle due liste, mai in entrambe e mai in nessuna.
+ * @param {GiocatoreElenco[]} giocatori
+ * @returns {{portieri: GiocatoreElenco[], movimento: GiocatoreElenco[]}}
+ */
+export function separaPortieri(giocatori) {
+  const portieri = [];
+  const movimento = [];
+  for (const g of giocatori || []) {
+    if (g && g.role === "P") portieri.push(g);
+    else movimento.push(g);
+  }
+  return { portieri, movimento };
+}
+
+/**
  * La classifica tiene solo chi ha giocato almeno una partita.
  * @template {RigaClassifica} T
  * @param {T[]} rows

@@ -19,13 +19,21 @@ import {
 import { activeNav, homePath, navItems, needsSeason, normalizePath, resolveRoute, seasonFromSearch, withSeason } from "../public/js/routes.js";
 import { PESI, etichettePerRuolo, myOverall, valoriDaVoto, valoriIniziali, median, votiPerTarget } from "../public/js/ratings.js";
 import { clamp, flagUrl, formatDate, formatNumber, formatOverall, formatOverallUp, formatShortDate, formatVotes, formaLabel, stepValue } from "../public/js/format.js";
-import { filterPlayers, rolesOf, withAppearances } from "../public/js/lists.js";
-import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../public/js/ordina.js";
+import { filterPlayers, rolesOf, separaPortieri, withAppearances } from "../public/js/lists.js";
+import {
+  ariaSort,
+  memoriaOrdinamento,
+  ordinaPerCriteri,
+  ordinaRighe,
+  prossimoStato,
+  prossimoStatoTabella,
+  statoVisibile,
+} from "../public/js/ordina.js";
 import { etichetteGol, formatoPartita, guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
 import { fasciaOverall, suggerisciNomeStagione, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
-import { testoDoppio } from "../public/js/views/giocatori.js";
+import { testoDoppio, testoCella, colonnePortieri, colonneMovimento, INIZIALE_PORTIERI, INIZIALE_MOVIMENTO, tabelleGiocatori } from "../public/js/views/giocatori.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
 import { etichettaAzioneRegistro, formatoDettaglioRegistro } from "../public/js/views/registro.js";
 import { formatoOra, validaDatiGiocatore } from "../public/js/views/editor_giocatore.js";
@@ -376,6 +384,126 @@ describe("elenco giocatori", () => {
   });
 });
 
+describe("due tabelle dei giocatori", () => {
+  const ROSTER: Array<{ id: string; name: string; role: string; overall: number | null }> = [
+    { id: "p-alto", name: "Amico", role: "P", overall: 85 },
+    { id: "p-pari", name: "Dario", role: "P", overall: 85 },
+    { id: "p-null", name: "Barto", role: "P", overall: null },
+    { id: "p-basso", name: "Salvio", role: "P", overall: 80 },
+    { id: "dc-a", name: "Antonio", role: "DC", overall: 80 },
+    { id: "dl-b", name: "bernardo", role: "DL", overall: null },
+    { id: "cc-anna", name: "anna", role: "CC", overall: 60 },
+    { id: "cc-blu", name: "blu", role: "CC", overall: null },
+    { id: "cc-eva", name: "Èva", role: "CC", overall: 70 },
+    { id: "cl-e", name: "èlia", role: "CL", overall: 70 },
+    { id: "pc-same-lo", name: "Same", role: "PC", overall: 55 },
+    { id: "pc-same-hi", name: "Same", role: "PC", overall: 95 },
+    { id: "pc-z", name: "Zeno", role: "PC", overall: 90 },
+  ];
+
+  it("ogni giocatore finisce nella sua tabella, mai in entrambe o in nessuna", () => {
+    const { portieri, movimento } = separaPortieri(ROSTER);
+    expect(portieri.map((g: any) => g.id)).toEqual(["p-alto", "p-pari", "p-null", "p-basso"]);
+    expect(movimento.map((g: any) => g.id)).toEqual(["dc-a", "dl-b", "cc-anna", "cc-blu", "cc-eva", "cl-e", "pc-same-lo", "pc-same-hi", "pc-z"]);
+    const inEntrambe = portieri.filter((p: any) => movimento.some((m: any) => m.id === p.id));
+    const inNessuna = new Set(ROSTER.map((g) => g.id)).size !== portieri.length + movimento.length;
+    expect(inEntrambe).toEqual([]);
+    expect(inNessuna).toBe(false);
+  });
+
+  it("ruoli sconosciuti o mancanti vanno coi movimento", () => {
+    const { portieri, movimento } = separaPortieri([{ id: "x", role: "" }, { id: "y" }, { id: "z", role: "P" }] as any);
+    expect(portieri.map((g: any) => g.id)).toEqual(["z"]);
+    expect(movimento.map((g: any) => g.id)).toEqual(["x", "y"]);
+  });
+
+  it("portieri: sigle da portiere, nessuna colonna Ruolo né sigle unite", () => {
+    const etichette = colonnePortieri(false).map((c: any) => c.etichetta);
+    expect(etichette).toEqual(["Giocatore", "Overall", "TUF", "PRE", "RIN", "RIF", "REA", "PIA"]);
+    expect(etichette.some((e: string) => e.includes("/"))).toBe(false);
+  });
+
+  it("movimento: sigle base e colonna Ruolo, senza sigle unite", () => {
+    const etichette = colonneMovimento(false).map((c: any) => c.etichetta);
+    expect(etichette).toEqual(["Giocatore", "Ruolo", "Overall", "VEL", "TIR", "PASS", "DRI", "DIF", "FIS"]);
+    expect(etichette.some((e: string) => e.includes("/"))).toBe(false);
+  });
+
+  it("la colonna Mio c'è solo con l'accesso", () => {
+    expect(colonnePortieri(true).some((c: any) => c.id === "mio")).toBe(true);
+    expect(colonnePortieri(false).some((c: any) => c.id === "mio")).toBe(false);
+    expect(colonneMovimento(true).some((c: any) => c.id === "mio")).toBe(true);
+    expect(colonneMovimento(false).some((c: any) => c.id === "mio")).toBe(false);
+  });
+
+  it("ordine iniziale dei movimento: ruolo, poi nome (maiuscole e accenti), poi overall", () => {
+    const { movimento } = tabelleGiocatori(ROSTER, {});
+    expect(movimento.map((g: any) => g.id)).toEqual([
+      "dc-a",
+      "dl-b",
+      "cc-anna", "cc-blu", "cc-eva",
+      "cl-e",
+      "pc-same-hi", "pc-same-lo", "pc-z",
+    ]);
+  });
+
+  it("ordine iniziale dei portieri: overall decrescente, null in fondo, poi nome", () => {
+    const { portieri } = tabelleGiocatori(ROSTER, {});
+    expect(portieri.map((g: any) => g.id)).toEqual(["p-alto", "p-pari", "p-basso", "p-null"]);
+  });
+
+  it("nessun filtro: compaiono entrambe le tabelle", () => {
+    const tabelle = tabelleGiocatori(ROSTER, {});
+    expect(tabelle.mostraPortieri).toBe(true);
+    expect(tabelle.mostraMovimento).toBe(true);
+    expect(tabelle.nessuna).toBe(false);
+  });
+
+  it("filtro ruolo P: solo la tabella dei portieri", () => {
+    const tabelle = tabelleGiocatori(ROSTER, { role: "P" });
+    expect(tabelle.mostraPortieri).toBe(true);
+    expect(tabelle.mostraMovimento).toBe(false);
+    expect(tabelle.nessuna).toBe(false);
+    expect(tabelle.movimento).toEqual([]);
+  });
+
+  it("filtro su un altro ruolo: solo la tabella dei movimento", () => {
+    const tabelle = tabelleGiocatori(ROSTER, { role: "CC" });
+    expect(tabelle.mostraPortieri).toBe(false);
+    expect(tabelle.mostraMovimento).toBe(true);
+    expect(tabelle.movimento.map((g: any) => g.id)).toEqual(["cc-anna", "cc-blu", "cc-eva"]);
+  });
+
+  it("una tabella vuota non compare; se sono vuote entrambe c'è la scritta", () => {
+    const tabelle = tabelleGiocatori(ROSTER, { role: "XX" });
+    expect(tabelle.mostraPortieri).toBe(false);
+    expect(tabelle.mostraMovimento).toBe(false);
+    expect(tabelle.nessuna).toBe(true);
+    expect(tabelleGiocatori([], {}).nessuna).toBe(true);
+  });
+
+  it("il filtro da votare vale per entrambe le tabelle", () => {
+    const votati = new Set(["dc-a"]);
+    const tabelle = tabelleGiocatori(ROSTER, { votati, io: "p-basso" } as any);
+    expect(tabelle.portieri.map((g: any) => g.id)).toEqual(["p-alto", "p-pari", "p-null"]);
+    expect(tabelle.movimento.map((g: any) => g.id)).not.toContain("dc-a");
+  });
+
+  it("con una colonna attiva si ordina su quella colonna", () => {
+    const tabelle = tabelleGiocatori(ROSTER, {}, { portieri: { id: "name", chiave: "name", direzione: "desc" } } as any);
+    expect(tabelle.portieri.map((g: any) => g.id)).toEqual(["p-basso", "p-pari", "p-null", "p-alto"]);
+  });
+
+  it("cella numerica: senza accesso solo il valore, con accesso mediana / mio", () => {
+    expect(testoCella("80", 84, false)).toBe("80");
+    expect(testoCella("—", null, false)).toBe("—");
+    expect(testoCella("80", 84, true)).toBe("80 / 84");
+    expect(testoCella("86", null, true)).toBe("86 / —");
+    expect(testoCella("—", null, true)).toBe("— / —");
+    expect(testoCella("86", null, true, true)).toBe("86");
+  });
+});
+
 describe("ordinamento delle tabelle", () => {
   const RIGHE = [
     { id: "a", name: "Carlo", powerScore: 10.5, mvpWeight: 1, overall: 80 },
@@ -435,6 +563,49 @@ describe("ordinamento delle tabelle", () => {
     expect(prossimoStato(secondo, colonna)).toEqual(primo);
     const altra = { id: "nome", chiave: "name", iniziale: "asc" as const };
     expect(prossimoStato(secondo, altra)).toEqual({ id: "nome", chiave: "name", direzione: "asc" });
+  });
+
+  it("tocchi della tabella: colonna, inversa, ritorno all'ordine iniziale (null)", () => {
+    const colonna = { id: "overall", chiave: "overall" as const, iniziale: "desc" as const };
+    const primo: any = prossimoStatoTabella(null, colonna);
+    expect(primo).toEqual({ id: "overall", chiave: "overall", direzione: "desc" });
+    const secondo: any = prossimoStatoTabella(primo, colonna);
+    expect(secondo.direzione).toBe("asc");
+    expect(prossimoStatoTabella(secondo, colonna)).toBeNull();
+    expect(prossimoStatoTabella(null, colonna)).toEqual(primo);
+  });
+
+  it("cambiare colonna ricomincia il giro", () => {
+    const prima = { id: "overall", chiave: "overall" as const, iniziale: "desc" as const };
+    const attiva: any = prossimoStatoTabella(null, prima);
+    const altra = { id: "nome", chiave: "name" as const, iniziale: "asc" as const };
+    expect(prossimoStatoTabella(attiva, altra)).toEqual({ id: "nome", chiave: "name", direzione: "asc" });
+  });
+
+  it("se la colonna attiva sparisce si torna all'ordine iniziale (null)", () => {
+    const stato = { id: "mio", chiave: "mioEsatto" as const, direzione: "desc" as const };
+    expect(statoVisibile(stato, colonnePortieri(false))).toBeNull();
+    expect(statoVisibile(stato, colonnePortieri(true))).toBe(stato);
+    expect(statoVisibile(null, colonnePortieri(false))).toBeNull();
+  });
+
+  it("ordinaPerCriteri applica l'ordine iniziale dei movimento (ruolo, nome, overall)", () => {
+    const righe = [
+      { id: "a", role: "DC", name: "Antonio", overall: 70 },
+      { id: "b", role: "PC", name: "Zeno", overall: null },
+      { id: "c", role: "DC", name: "Adele", overall: 90 },
+    ];
+    const ordine = ordinaPerCriteri(righe, INIZIALE_MOVIMENTO as any).map((r: any) => r.id);
+    expect(ordine).toEqual(["c", "a", "b"]);
+    expect(INIZIALE_PORTIERI.map((c: any) => c.chiave)).toEqual(["overall", "name"]);
+  });
+
+  it("la memoria di ordinamento accetta anche lo stato null iniziale", () => {
+    const vuota = memoriaOrdinamento("prova-null", "/giocatori", null);
+    expect(vuota.ordinamento).toBeNull();
+    vuota.ordinamento = { id: "nome", chiave: "name", direzione: "asc" };
+    expect(memoriaOrdinamento("prova-null", "/giocatori", null).ordinamento.id).toBe("nome");
+    expect(memoriaOrdinamento("prova-null", "/altra", null).ordinamento).toBeNull();
   });
 
   it("aria-sort: none sulle altre, corretto sull'attiva", () => {

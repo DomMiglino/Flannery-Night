@@ -264,6 +264,14 @@ button {
   text-transform: uppercase;
 }
 
+/* Titolo sopra ciascuna delle due tabelle dei giocatori: spazio netto
+   fra le sezioni e testo ben visibile. */
+.titolo-tabella {
+  margin: 24px 0 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
 .nota {
   margin: 6px 0;
   color: var(--testo-2);

@@ -1,7 +1,7 @@
 // Ordinamento delle tabelle: logica pura, senza DOM.
-// Una sola colonna attiva alla volta. Primo tocco: direzione iniziale
-// della colonna; secondo tocco: inversa; terzo tocco: di nuovo l'iniziale
-// (non esiste lo stato "non ordinato").
+// Una sola colonna attiva alla volta. Su una colonna il primo tocco dà la
+// sua direzione iniziale e il secondo l'inversa; con prossimoStatoTabella
+// il terzo tocco riporta all'ordine iniziale della tabella (stato null).
 
 /**
  * @typedef {Object} Criterio
@@ -62,6 +62,20 @@ export function ordinaRighe(righe, { chiave, direzione = "desc", spareggi = [] }
 }
 
 /**
+ * Ordina per una sequenza di criteri: il primo ha la precedenza, gli
+ * altri valgono come spareggi nell'ordine dato. Serve per l'ordine
+ * iniziale di una tabella, che non coincide con nessuna colonna.
+ * @param {Array} righe
+ * @param {Criterio[]} criteri
+ */
+export function ordinaPerCriteri(righe, criteri) {
+  const lista = (criteri || []).filter((c) => c && c.chiave !== undefined && c.chiave !== null);
+  if (lista.length === 0) return [...(righe || [])];
+  const [primo, ...resto] = lista;
+  return ordinaRighe(righe, { chiave: primo.chiave, direzione: primo.direzione || "desc", spareggi: resto });
+}
+
+/**
  * Prossimo stato dopo il tocco su una colonna.
  * @param {StatoOrdinamento|null} stato  colonna attiva, o null
  * @param {{id: string, chiave: string|function, iniziale: "asc"|"desc"}} colonna  colonna toccata
@@ -71,6 +85,32 @@ export function prossimoStato(stato, colonna) {
     return { id: colonna.id, chiave: colonna.chiave, direzione: colonna.iniziale };
   }
   return { id: stato.id, chiave: stato.chiave, direzione: stato.direzione === "asc" ? "desc" : "asc" };
+}
+
+/**
+ * Tocco sull'intestazione di una tabella: il primo porta la direzione
+ * iniziale della colonna, il secondo l'inversa, il terzo torna
+ * all'ordine iniziale della tabella (null = nessuna colonna attiva).
+ * @param {StatoOrdinamento|null} stato  colonna attiva, o null
+ * @param {{id: string, chiave: string|function, iniziale: "asc"|"desc"}} colonna  colonna toccata
+ * @returns {StatoOrdinamento|null}
+ */
+export function prossimoStatoTabella(stato, colonna) {
+  if (stato && stato.id === colonna.id && stato.direzione !== colonna.iniziale) return null;
+  return prossimoStato(stato, colonna);
+}
+
+/**
+ * Lo stesso stato se la sua colonna è ancora visibile, altrimenti null
+ * (si torna all'ordine iniziale della tabella). Serve quando una colonna
+ * sparisce, per esempio "Mio" senza accesso.
+ * @param {StatoOrdinamento|null} stato
+ * @param {{id: string}[]} colonne  colonne visibili
+ * @returns {StatoOrdinamento|null}
+ */
+export function statoVisibile(stato, colonne) {
+  if (!stato) return null;
+  return (colonne || []).some((c) => c && c.id === stato.id) ? stato : null;
 }
 
 /** Valore per aria-sort dall'essere o meno la colonna attiva. */
@@ -84,14 +124,16 @@ const memorie = new Map();
 /**
  * Ordinamento che resta cambiando stagione (stesso percorso) ma torna a
  * quello iniziale uscendo dalla pagina e rientrando (percorso diverso).
- * @param {string} vista  nome della pagina ("classifica", "giocatori")
+ * L'iniziale può essere null: nessuna colonna attiva, ordine iniziale
+ * della tabella.
+ * @param {string} vista  nome della pagina ("classifica", "giocatori-portieri")
  * @param {string} percorso  percorso attuale (location.pathname)
- * @param {StatoOrdinamento} iniziale
+ * @param {StatoOrdinamento|null} iniziale
  */
 export function memoriaOrdinamento(vista, percorso, iniziale) {
   const precedente = memorie.get(vista);
   if (!precedente || precedente.percorso !== percorso) {
-    const fresca = { percorso, ordinamento: { ...iniziale } };
+    const fresca = { percorso, ordinamento: iniziale ? { ...iniziale } : null };
     memorie.set(vista, fresca);
     return fresca;
   }
