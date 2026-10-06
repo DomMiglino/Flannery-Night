@@ -243,10 +243,10 @@ describe("il mio overall", () => {
     expect(median([])).toBeNull();
   });
 
-  it("i campi partono dalla mediana, o da 50 se non c'è", () => {
+  it("i campi partono dalla mediana, o da 75 se non c'è", () => {
     const senza = valoriIniziali({ velTuf: 80, tirPre: null } as any, null);
     expect(senza.velTuf).toBe(80);
-    expect(senza.tirPre).toBe(50);
+    expect(senza.tirPre).toBe(75);
   });
 
   it("se ho già votato, i campi partono dal mio voto", () => {

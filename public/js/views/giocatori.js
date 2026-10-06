@@ -7,7 +7,7 @@
 import { ApiError, api } from "../api.js";
 import { clear, el, linkInterno } from "../dom.js";
 import { filterPlayers, rolesOf, separaPortieri } from "../lists.js";
-import { etichettePerRuolo, votiPerTarget } from "../ratings.js";
+import { etichettePerRuolo, PESI, votiPerTarget } from "../ratings.js";
 import {
   ariaSort,
   memoriaOrdinamento,
@@ -19,7 +19,7 @@ import { withSeason } from "../routes.js";
 import { bandiera, errore, scheletro, titolo } from "../ui.js";
 import { troncaNome } from "./classifica.js";
 import { lasciaAvviso, prendiAvviso } from "../state.js";
-import { renderEditorGiocatore } from "./editor_giocatore.js";
+import { renderEditorGiocatore, ETICHETTE_RUOLI } from "./editor_giocatore.js";
 
 /** Mediana come arriva dall'API (può avere un decimale); "—" senza voti. */
 function testoMediana(valore) {
@@ -158,6 +158,99 @@ function intestazione(colonna, stato, alToccare) {
   return el("th", { attrs: { scope: "col", "aria-sort": ariaSort(attiva, stato ? stato.direzione : null) }, children: [bottone] });
 }
 
+/** Percentuali per cui esiste una classe barra in styles.css (pesi reali di PESI). */
+const PESI_CLASSI = [0, 5, 10, 15, 20, 25, 30, 35, 40];
+
+function classePeso(peso) {
+  const quota = Math.round(Number(peso) * 100);
+  const vicino = PESI_CLASSI.reduce((a, b) => (Math.abs(b - quota) < Math.abs(a - quota) ? b : a), 0);
+  return `peso-${vicino}`;
+}
+
+/** Una cella del popup: sigla e per cento con la barra; "—" se l'attributo pesa zero. */
+function cellaPeso(etichetta, peso) {
+  const quota = Math.round(Number(peso) * 100);
+  const nome = `${etichetta.sigla} ${etichetta.significato}`;
+  if (quota === 0) {
+    return el("td", { className: "peso-cella peso-zero", text: "—", attrs: { "aria-label": `${nome}: nessun peso` } });
+  }
+  return el("td", {
+    className: "peso-cella",
+    attrs: { "aria-label": `${nome}: ${quota} per cento`, title: nome },
+    children: [
+      el("span", {
+        className: "peso-valore",
+        children: [el("span", { className: "peso-sigla", text: etichetta.sigla }), el("span", { className: "peso-quota", text: `${quota}%` })],
+      }),
+      el("span", {
+        className: "peso-traccia",
+        children: [el("span", { className: `peso-barra ${classePeso(peso)}`, attrs: { "aria-hidden": "true" } })],
+      }),
+    ],
+  });
+}
+
+/** Il popup "Come si calcola l'overall": una riga per ruolo, sei celle di pesi. */
+function dialogoPesi() {
+  const righe = ORDINE_RUOLI.map((ruolo) => {
+    const etichette = etichettePerRuolo(ruolo);
+    const pesi = PESI[ruolo] || [];
+    const etichettaRuolo = ETICHETTE_RUOLI.find((r) => r.value === ruolo);
+    return el("tr", {
+      children: [
+        el("th", { attrs: { scope: "row" }, text: etichettaRuolo ? etichettaRuolo.label : ruolo }),
+        ...etichette.map((etichetta, i) => cellaPeso(etichetta, pesi[i] || 0)),
+      ],
+    });
+  });
+
+  const dialogo = el("dialog", {
+    className: "dialogo-pesi",
+    attrs: { "aria-label": "Come si calcola l'overall" },
+    children: [
+      el("h3", { className: "dialogo-titolo", text: "Come si calcola l'overall" }),
+      el("p", {
+        className: "nota",
+        text:
+          "L'overall è la media dei sei valori (le mediane ricevute, o i voti che hai assegnato) pesata per il ruolo:" +
+          " ogni attributo conta quanto pesa qui sotto. Un peso dello 0% non entra nel calcolo e il risultato finale" +
+          " è arrotondato per eccesso. Chi ha un ruolo non riconosciuto resta con la media semplice dei sei valori.",
+      }),
+      el("div", {
+        className: "pesi-scorre",
+        children: [
+          el("table", {
+            className: "pesi-tabella",
+            attrs: { "aria-label": "Peso di ogni attributo per ruolo" },
+            children: [el("tbody", { children: righe })],
+          }),
+        ],
+      }),
+      el("p", {
+        className: "nota",
+        text:
+          "I portieri usano le stesse sei posizioni con il nome da portiere: TUF, PRE, RIN, RIF, REA e PIA" +
+          " al posto di VEL, TIR, PASS, DRI, DIF e FIS.",
+      }),
+      el("div", {
+        className: "dialogo-azione",
+        children: [el("button", { className: "pulsante", text: "Chiudi", attrs: { type: "button" }, on: { click: () => dialogo.close() } })],
+      }),
+    ],
+  });
+
+  dialogo.addEventListener("close", () => dialogo.remove());
+  // Click sullo sfondo fuori dal riquadro: chiude. Dentro il riquadro no.
+  dialogo.addEventListener("click", (evento) => {
+    if (evento.target !== dialogo) return;
+    const r = dialogo.getBoundingClientRect();
+    const dentro =
+      evento.clientX >= r.left && evento.clientX <= r.right && evento.clientY >= r.top && evento.clientY <= r.bottom;
+    if (!dentro) dialogo.close();
+  });
+  return dialogo;
+}
+
 export async function renderGiocatori(root, ctx, rotta = {}) {
   const me = ctx.me();
   const gestione = !!me && me.isAdmin === true;
@@ -232,6 +325,36 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
     className: "nota",
     attrs: { role: "status" },
     text: "A sinistra il voto mediana, a destra il voto che hai assegnato (— se non lo hai assegnato).",
+  });
+
+  // Legenda dell'overall con il tasto "i": resta visibile anche agli ospiti.
+  // Con il popup aperto la pagina sotto non scorre (classe su html e body).
+  let dialogoAperto = null;
+  function apriPesi() {
+    if (dialogoAperto) dialogoAperto.close();
+    const dialogo = dialogoPesi();
+    dialogoAperto = dialogo;
+    dialogo.addEventListener("close", () => {
+      document.documentElement.classList.remove("popup-aperto");
+      document.body.classList.remove("popup-aperto");
+      if (dialogoAperto === dialogo) dialogoAperto = null;
+    });
+    document.documentElement.classList.add("popup-aperto");
+    document.body.classList.add("popup-aperto");
+    document.body.append(dialogo);
+    dialogo.showModal();
+  }
+  const notaOverall = el("p", {
+    className: "nota",
+    children: [
+      el("span", { text: "L'overall è la media dei sei valori pesata per il ruolo." }),
+      el("button", {
+        className: "tasto-info",
+        text: "i",
+        attrs: { type: "button", "aria-haspopup": "dialog", "aria-label": "Come si calcola l'overall" },
+        on: { click: apriPesi },
+      }),
+    ],
   });
 
   const ruoli = rolesOf(giocatori);
@@ -418,6 +541,7 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
     );
   }
   root.append(filtri);
+  root.append(notaOverall);
   root.append(istruzione);
   root.append(contenitore);
   disegna();

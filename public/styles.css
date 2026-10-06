@@ -294,6 +294,195 @@ button {
   color: var(--avviso);
 }
 
+/* ---------- legenda overall: tasto "i" e popup dei pesi ---------- */
+
+/* Cerchio affiancato alla legenda, piccolo ma ben visibile. */
+.tasto-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 6px;
+  padding: 0;
+  vertical-align: middle;
+  background: var(--accento);
+  color: var(--accento-testo);
+  border: 1px solid var(--accento);
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tasto-info:hover {
+  background: var(--superficie);
+  color: var(--accento);
+}
+
+.tasto-info:focus-visible {
+  outline: 2px solid var(--accento);
+  outline-offset: 2px;
+}
+
+/* Popup nativo <dialog>: stesso linguaggio visivo delle altre card. */
+.dialogo-pesi {
+  width: calc(100% - 32px);
+  max-width: 540px;
+  max-height: calc(100vh - 48px);
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--superficie);
+  color: var(--testo);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  box-shadow: var(--ombra);
+}
+
+.dialogo-pesi::backdrop {
+  background: rgba(16, 22, 32, 0.5);
+}
+
+.dialogo-titolo {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.dialogo-azione {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* Popup aperto: la pagina sotto resta ferma, su html (propaga al viewport)
+   e su body per sicurezza. */
+html.popup-aperto,
+body.popup-aperto {
+  overflow: hidden;
+}
+
+/* Tabella dei pesi: una riga per ruolo, sei celle con barra. La barra
+   orizzontale è sempre visibile, anche quando non serve scorrere. */
+.pesi-scorre {
+  overflow-x: scroll;
+  scrollbar-color: var(--bordo) var(--superficie-2);
+  scrollbar-width: thin;
+}
+
+.pesi-scorre::-webkit-scrollbar {
+  height: 10px;
+}
+
+.pesi-scorre::-webkit-scrollbar-track {
+  background: var(--superficie-2);
+  border-radius: 5px;
+}
+
+.pesi-scorre::-webkit-scrollbar-thumb {
+  background: var(--bordo);
+  border-radius: 5px;
+}
+
+.pesi-tabella {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pesi-tabella th,
+.pesi-tabella td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--bordo);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.pesi-tabella th[scope="row"] {
+  width: 40%;
+  min-width: 116px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: normal;
+}
+
+.peso-cella {
+  min-width: 52px;
+}
+
+.peso-valore {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 4px;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.peso-sigla {
+  font-weight: 700;
+}
+
+.peso-quota {
+  color: var(--testo-2);
+}
+
+.peso-traccia {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  background: var(--superficie-2);
+  border-radius: 3px;
+}
+
+.peso-barra {
+  display: block;
+  height: 100%;
+  background: var(--accento);
+}
+
+/* Larghezze della barra: 40% di peso = barra piena. Nessuno stile in linea. */
+.peso-0 {
+  width: 0;
+}
+
+.peso-5 {
+  width: 12.5%;
+}
+
+.peso-10 {
+  width: 25%;
+}
+
+.peso-15 {
+  width: 37.5%;
+}
+
+.peso-20 {
+  width: 50%;
+}
+
+.peso-25 {
+  width: 62.5%;
+}
+
+.peso-30 {
+  width: 75%;
+}
+
+.peso-35 {
+  width: 87.5%;
+}
+
+.peso-40 {
+  width: 100%;
+}
+
+.peso-zero {
+  color: var(--testo-2);
+  text-align: center;
+}
+
 /* ---------- liste ---------- */
 
 .elenco {

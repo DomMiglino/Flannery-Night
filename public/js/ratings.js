@@ -143,7 +143,7 @@ export function votiPerTarget(voti) {
 
 /**
  * Valori iniziali dei campi di votazione: il mio voto se esiste,
- * altrimenti la mediana ricevuta, altrimenti 50. Restano "non salvati".
+ * altrimenti la mediana ricevuta, altrimenti 75. Restano "non salvati".
  */
 /**
  * @param {Valori|null} mediane
@@ -158,7 +158,7 @@ export function valoriIniziali(mediane, mioVoto) {
       continue;
     }
     const mediana = mediane ? mediane[chiave] : null;
-    iniziali[chiave] = mediana === null || mediana === undefined ? 50 : Math.round(Number(mediana));
+    iniziali[chiave] = mediana === null || mediana === undefined ? 75 : Math.round(Number(mediana));
   }
   return iniziali;
 }

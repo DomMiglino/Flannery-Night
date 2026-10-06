@@ -7,7 +7,7 @@ import { clear, el } from "../dom.js";
 import { bandiera, errore, scheletro, titolo } from "../ui.js";
 import { lasciaAvviso } from "../state.js";
 
-const ETICHETTE_RUOLI = [
+export const ETICHETTE_RUOLI = [
   { value: "P", label: "P · Portiere" },
   { value: "DC", label: "DC · Difensore Centrale" },
   { value: "DL", label: "DL · Difensore Laterale" },
