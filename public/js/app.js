@@ -51,8 +51,6 @@ function prendiElementi() {
   dom.menuTitolo = document.getElementById("menu-titolo");
   dom.voceAccedi = document.getElementById("voce-accedi");
   dom.voceCambia = document.getElementById("voce-cambia");
-  dom.voceRegistro = document.getElementById("voce-registro");
-  dom.voceExporta = document.getElementById("voce-exporta");
   dom.voceEsci = document.getElementById("voce-esci");
   dom.nav = new Map([
     ["home", document.getElementById("nav-home")],
@@ -134,17 +132,78 @@ function disegnaBarra(routeName) {
 
 const NODI_VOCI_MENU = {
   "voce-cambia": "voceCambia",
-  "voce-registro": "voceRegistro",
-  "voce-exporta": "voceExporta",
   "voce-accedi": "voceAccedi",
   "voce-esci": "voceEsci",
 };
+
+let nodoRegistro = null;
+let nodoExporta = null;
+
+function creaVoceRegistro() {
+  const nodo = el("a", { className: "menu-voce", id: "voce-registro", text: "Registro", attrs: { href: "/registro" } });
+  return linkInterno(nodo, (href) => vai(href));
+}
+
+function creaVoceExporta() {
+  const nodo = el("button", { className: "menu-voce", id: "voce-exporta", text: "Esporta dati", attrs: { type: "button" } });
+  nodo.addEventListener("click", async () => {
+    try {
+      const dati = await api.esportaDati();
+      const blob = new Blob([JSON.stringify(dati, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `flannery-night-${new Date().toISOString().slice(0, 10)}.json`;
+      a.rel = "noopener";
+      document.body.append(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      apriMenu(false);
+    } catch (erroreApi) {
+      if (erroreApi instanceof ApiError && erroreApi.status === 401) {
+        sessioneScaduta();
+        return;
+      }
+      window.alert(erroreApi instanceof Error ? erroreApi.message : "Non riesco a esportare i dati");
+    }
+  });
+  return nodo;
+}
+
+/** Le voci di gestione esistono nel menu solo per chi ha il permesso:
+ *  per gli altri non c'è proprio il nodo, né testo nascosto. Il permesso
+ *  si legge dallo stato condiviso in questo momento, mai da una copia. */
+function aggiornaVociGestione(utente) {
+  const daMostrare = !!utente && utente.isAdmin === true;
+  if (daMostrare) {
+    const dopo = document.getElementById("voce-cambia");
+    if (!nodoRegistro && dopo && dopo.parentNode) {
+      nodoRegistro = creaVoceRegistro();
+      dopo.after(nodoRegistro);
+    }
+    if (!nodoExporta && nodoRegistro && nodoRegistro.parentNode) {
+      nodoExporta = creaVoceExporta();
+      nodoRegistro.after(nodoExporta);
+    }
+  } else {
+    if (nodoRegistro) {
+      nodoRegistro.remove();
+      nodoRegistro = null;
+    }
+    if (nodoExporta) {
+      nodoExporta.remove();
+      nodoExporta = null;
+    }
+  }
+}
 
 function disegnaMenu() {
   const collegato = isCollegato();
   const utente = utenteCollegato();
   dom.menu.hidden = true;
   dom.pulsanteAccount.setAttribute("aria-expanded", "false");
+  aggiornaVociGestione(utente);
   for (const voce of vociMenu(collegato, Boolean(utente && utente.isAdmin))) {
     const nodo = dom[NODI_VOCI_MENU[voce.id]];
     if (nodo) nodo.hidden = !voce.visibile;
@@ -238,29 +297,6 @@ async function avvia() {
   }
   linkInterno(dom.voceAccedi, (href) => vai(href));
   linkInterno(dom.voceCambia, (href) => vai(href));
-  if (dom.voceRegistro) linkInterno(dom.voceRegistro, (href) => vai(href));
-  if (dom.voceExporta) dom.voceExporta.addEventListener("click", async () => {
-    try {
-      const dati = await api.esportaDati();
-      const blob = new Blob([JSON.stringify(dati, null, 2)], { type: "application/json;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `flannery-night-${new Date().toISOString().slice(0, 10)}.json`;
-      a.rel = "noopener";
-      document.body.append(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      apriMenu(false);
-    } catch (erroreApi) {
-      if (erroreApi instanceof ApiError && erroreApi.status === 401) {
-        sessioneScaduta();
-        return;
-      }
-      window.alert(erroreApi instanceof Error ? erroreApi.message : "Non riesco a esportare i dati");
-    }
-  });
 
   linkInterno(dom.titoloSito, (href) => vai(href));
   dom.pulsanteAccount.addEventListener("click", () => {

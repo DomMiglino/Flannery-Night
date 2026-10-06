@@ -32,7 +32,9 @@ export function actionLabel(action) {
     season_create: "Nuova stagione",
     export_data: "Esportazione dati",
   };
-  return mappa[action] ?? String(action ?? "Azione");
+  const testo = String(action ?? "").trim();
+  if (!testo) return "Azione";
+  return mappa[testo] ?? testo;
 }
 
 export function formatAuditDetail(detail) {
@@ -82,47 +84,49 @@ function formatItalianDate(value) {
 export const formatoOra = formatItalianDate;
 
 function rigaRegistro(entry) {
+  const data = formatItalianDate(entry.at);
+  const attore = String(entry.actor ?? "").trim();
   const azione = actionLabel(entry.action);
+  const dettaglio = formatAuditDetail(entry.detail);
   const sicurezza = isSecurityAction(entry.action);
-  const blocco = el("article", {
+  return el("article", {
     className: "registro-item",
     children: [
       el("div", {
         className: "registro-testa",
         children: [
-          el("span", { className: "registro-data", text: formatItalianDate(entry.at) }),
+          data ? el("span", { className: "registro-data", text: data }) : null,
           el("span", { className: sicurezza ? "registro-badge registro-badge-sicurezza" : "registro-badge registro-badge-dati", text: sicurezza ? "Sicurezza" : "Dati" }),
         ],
       }),
       el("div", { className: "registro-riga", children: [
         el("span", { className: "registro-label", text: "Autore" }),
-        el("span", { className: "registro-valore", text: entry.actor || "Giocatore eliminato" }),
+        el("span", { className: "registro-valore", text: attore || "Giocatore eliminato" }),
       ]}),
       el("div", { className: "registro-riga", children: [
         el("span", { className: "registro-label", text: "Azione" }),
         el("span", { className: "registro-valore", text: azione }),
       ]}),
-      entry.detail ? el("div", { className: "registro-riga registro-dettaglio", children: [
+      dettaglio ? el("div", { className: "registro-riga registro-dettaglio", children: [
         el("span", { className: "registro-label", text: "Dettaglio" }),
-        el("span", { className: "registro-valore", text: formatAuditDetail(entry.detail) }),
+        el("span", { className: "registro-valore", text: dettaglio }),
       ]}) : null,
     ],
   });
-  return blocco;
 }
 
 export async function renderRegistro(root, ctx) {
   const me = ctx.me();
   if (!me || me.isAdmin !== true) {
-    ctx.navigate("/classifica");
+    ctx.navigate("/classifica", { sostituisci: true });
     return;
   }
 
   clear(root);
   root.append(titolo("Registro"));
-  root.append(scheletro(6));
 
   const elenco = el("div", { className: "registro-lista" });
+  elenco.append(scheletro(6));
   root.append(elenco);
 
   async function carica(before = null) {

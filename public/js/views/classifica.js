@@ -9,6 +9,7 @@ import { withAppearances } from "../lists.js";
 import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../ordina.js";
 import { bandiera, errore, forma, scheletro, separaMvp, titolo } from "../ui.js";
 import { withSeason } from "../routes.js";
+import { stagioneAttiva as idStagioneCorrente, utenteCollegato } from "../state.js";
 
 /**
  * Rendimento in piccoli segnaposto con la lettera visibile e la stella
@@ -82,6 +83,25 @@ export function suggerisciNomeStagione(attuale) {
   return `${nuovoBase}/${String(nuovoFinale).padStart(2, "0")}`;
 }
 
+/**
+ * Il tasto "Nuova stagione" si vede solo a chi gestisce: il permesso è
+ * l'unico richiesto e va letto dallo stato condiviso nel momento del
+ * disegno. Chi non gestisce non riceve né tasto né riquadro.
+ * @param {{ [chiave: string]: any, isAdmin?: boolean } | null | undefined} utente giocatore attivo, oppure null
+ * @returns {boolean}
+ */
+export function mostraNuovaStagione(utente) {
+  return !!utente && utente.isAdmin === true;
+}
+
+/** Il gestore chiude la stagione solo guardandone una attiva: su una
+ *  stagione archiviata niente tasto. Il confronto è tra numeri, perché
+ *  id di stagioni e query possono arrivare come stringhe. */
+export function soloStagioneAttiva(seasonId, attivaId) {
+  if (attivaId === null || attivaId === undefined) return false;
+  return Number(seasonId) === Number(attivaId);
+}
+
 const COLONNE = [
   { id: "nome", etichetta: "Giocatore", completa: "Giocatore", chiave: "name", iniziale: "asc" },
   { id: "power", etichetta: "FPS", completa: "Flannery Power Score", chiave: "powerScore", iniziale: "desc" },
@@ -149,11 +169,19 @@ export async function renderClassifica(root, ctx) {
 
   const memoria = memoriaOrdinamento("classifica", location.pathname, INIZIALE);
   const contenitore = el("div");
-  const admin = !!ctx.me() && ctx.me().isAdmin === true;
   const stagioneAttiva = risposta.season && risposta.season.name ? risposta.season.name : "";
   const suggerito = suggerisciNomeStagione(stagioneAttiva);
 
-  if (admin) {
+  /**
+   * Il tasto "Nuova stagione" con il suo riquadro: si costruisce solo per
+   * chi gestisce, con il permesso letto dallo stato nel momento del
+   * disegno. Ritorna null per gli altri, così in pagina non resta nessun
+   * testo nascosto.
+   */
+  function sezioneNuovaStagione() {
+    if (!mostraNuovaStagione(utenteCollegato())) return null;
+    if (!soloStagioneAttiva(risposta.season && risposta.season.id, idStagioneCorrente())) return null;
+
     const panel = el("div", { className: "pannello-gestione", attrs: { hidden: true } });
     const input = el("input", { className: "campo-gestione", attrs: { type: "text", maxlength: "20", value: suggerito } });
     const erroreNodo = el("p", { className: "nota-errore", text: "", attrs: { hidden: true } });
@@ -232,7 +260,7 @@ export async function renderClassifica(root, ctx) {
         conferma.hidden = true;
       } },
     });
-    root.append(el("div", { className: "gestione-sezione", children: [pulsanteNuova, panel] }));
+    return el("div", { className: "gestione-sezione nuova-stagione-fondo", children: [pulsanteNuova, panel] });
   }
 
   function disegna() {
@@ -339,9 +367,13 @@ export async function renderClassifica(root, ctx) {
 
   if (righe.length === 0) {
     root.append(el("p", { className: "nota", text: "Non risultano ancora partite pubblicate." }));
-    return;
+  } else {
+    root.append(contenitore);
+    disegna();
   }
 
-  root.append(contenitore);
-  disegna();
+  // In fondo, dopo la tabella (o la nota dello stato vuoto): sta sopra
+  // root, quindi i clear(contenitore) dei riordini non lo cancellano.
+  const gestione = sezioneNuovaStagione();
+  if (gestione) root.append(gestione);
 }

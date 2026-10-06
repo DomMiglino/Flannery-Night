@@ -152,7 +152,9 @@ select,
 input,
 button {
   font: inherit;
+  font-size: 1rem;
   color: inherit;
+  touch-action: manipulation;
 }
 
 .stagione {
@@ -487,7 +489,7 @@ button {
   border-color: currentColor;
 }
 
-/* Ruolo come piccola etichetta, overall in un riquadro, Mio in tono distinto. */
+/* Ruolo come piccola etichetta, overall in un riquadro. */
 .pill {
   display: inline-block;
   padding: 2px 8px;
@@ -506,10 +508,6 @@ button {
   background: var(--superficie-2);
   font-weight: 700;
   text-align: center;
-}
-
-.tabella-mio {
-  color: var(--testo-2);
 }
 
 /* Celle doppie "mediana / mio voto": numeri vicini, mai a capo in mezzo. */
@@ -693,6 +691,13 @@ button {
 
 .tasto-gestione-separato {
   margin-bottom: 12px;
+}
+
+/* "Nuova stagione" in fondo alla classifica: aria sopra il tasto per
+   staccarlo dalla tabella e sotto perché la barra non lo copra. */
+.nuova-stagione-fondo {
+  margin-top: 20px;
+  margin-bottom: 8px;
 }
 
 .gestione-sezione {
@@ -1052,6 +1057,9 @@ button {
   font-size: 1.2rem;
   font-weight: 700;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .voto-campo {
@@ -1061,6 +1069,7 @@ button {
   background: var(--superficie-2);
   border: 1px solid var(--bordo);
   border-radius: 10px;
+  font-size: 1rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -1364,6 +1373,9 @@ button {
   font-size: 1.2rem;
   font-weight: 700;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .editor-numero {

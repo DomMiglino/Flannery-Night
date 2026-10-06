@@ -100,19 +100,6 @@ export function prossimoStatoTabella(stato, colonna) {
   return prossimoStato(stato, colonna);
 }
 
-/**
- * Lo stesso stato se la sua colonna è ancora visibile, altrimenti null
- * (si torna all'ordine iniziale della tabella). Serve quando una colonna
- * sparisce, per esempio "Mio" senza accesso.
- * @param {StatoOrdinamento|null} stato
- * @param {{id: string}[]} colonne  colonne visibili
- * @returns {StatoOrdinamento|null}
- */
-export function statoVisibile(stato, colonne) {
-  if (!stato) return null;
-  return (colonne || []).some((c) => c && c.id === stato.id) ? stato : null;
-}
-
 /** Valore per aria-sort dall'essere o meno la colonna attiva. */
 export function ariaSort(attiva, direzione) {
   if (!attiva) return "none";

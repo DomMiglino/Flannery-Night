@@ -27,12 +27,11 @@ import {
   ordinaRighe,
   prossimoStato,
   prossimoStatoTabella,
-  statoVisibile,
 } from "../public/js/ordina.js";
 import { etichetteGol, formatoPartita, guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
-import { fasciaOverall, suggerisciNomeStagione, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
+import { fasciaOverall, mostraNuovaStagione, soloStagioneAttiva, suggerisciNomeStagione, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
 import { testoDoppio, testoCella, colonnePortieri, colonneMovimento, INIZIALE_PORTIERI, INIZIALE_MOVIMENTO, tabelleGiocatori } from "../public/js/views/giocatori.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
 import { etichettaAzioneRegistro, formatoDettaglioRegistro } from "../public/js/views/registro.js";
@@ -429,11 +428,9 @@ describe("due tabelle dei giocatori", () => {
     expect(etichette.some((e: string) => e.includes("/"))).toBe(false);
   });
 
-  it("la colonna Mio c'è solo con l'accesso", () => {
-    expect(colonnePortieri(true).some((c: any) => c.id === "mio")).toBe(true);
-    expect(colonnePortieri(false).some((c: any) => c.id === "mio")).toBe(false);
-    expect(colonneMovimento(true).some((c: any) => c.id === "mio")).toBe(true);
-    expect(colonneMovimento(false).some((c: any) => c.id === "mio")).toBe(false);
+  it("nessuna colonna Mio in nessuno stato di accesso", () => {
+    const tutte = [...colonnePortieri(false), ...colonnePortieri(true), ...colonneMovimento(false), ...colonneMovimento(true)];
+    expect(tutte.some((c: any) => c.id === "mio" || c.etichetta === "Mio")).toBe(false);
   });
 
   it("ordine iniziale dei movimento: ruolo, poi nome (maiuscole e accenti), poi overall", () => {
@@ -580,13 +577,6 @@ describe("ordinamento delle tabelle", () => {
     const attiva: any = prossimoStatoTabella(null, prima);
     const altra = { id: "nome", chiave: "name" as const, iniziale: "asc" as const };
     expect(prossimoStatoTabella(attiva, altra)).toEqual({ id: "nome", chiave: "name", direzione: "asc" });
-  });
-
-  it("se la colonna attiva sparisce si torna all'ordine iniziale (null)", () => {
-    const stato = { id: "mio", chiave: "mioEsatto" as const, direzione: "desc" as const };
-    expect(statoVisibile(stato, colonnePortieri(false))).toBeNull();
-    expect(statoVisibile(stato, colonnePortieri(true))).toBe(stato);
-    expect(statoVisibile(null, colonnePortieri(false))).toBeNull();
   });
 
   it("ordinaPerCriteri applica l'ordine iniziale dei movimento (ruolo, nome, overall)", () => {
@@ -775,6 +765,33 @@ describe("tabella della classifica", () => {
     expect(separaMvp("")).toEqual({ testo: "", mvp: false });
     expect(separaMvp(null)).toEqual({ testo: "", mvp: false });
   });
+
+  it("il tasto Nuova stagione si vede solo per chi gestisce", () => {
+    expect(mostraNuovaStagione({ id: "antonio", isAdmin: true })).toBe(true);
+    expect(mostraNuovaStagione({ id: "fake", isAdmin: false })).toBe(false);
+    expect(mostraNuovaStagione({ id: "fake" })).toBe(false);
+    expect(mostraNuovaStagione({ isAdmin: true, name: "Antonio" })).toBe(true);
+    expect(mostraNuovaStagione(null)).toBe(false);
+    expect(mostraNuovaStagione(undefined)).toBe(false);
+  });
+
+  it("il permesso si legge dallo stato nel momento del disegno, mai da una copia", () => {
+    impostaCollegato({ id: "antonio", isAdmin: true } as any);
+    expect(mostraNuovaStagione(utenteCollegato())).toBe(true);
+    impostaCollegato({ id: "antonio", isAdmin: false } as any);
+    expect(mostraNuovaStagione(utenteCollegato())).toBe(false);
+    impostaCollegato(null);
+    expect(mostraNuovaStagione(utenteCollegato())).toBe(false);
+  });
+
+  it("il tasto Nuova stagione esiste solo sulla stagione attiva", () => {
+    expect(soloStagioneAttiva(2, 2)).toBe(true);
+    expect(soloStagioneAttiva("2", "2")).toBe(true);
+    expect(soloStagioneAttiva(3, 2)).toBe(false);
+    expect(soloStagioneAttiva(null, 2)).toBe(false);
+    expect(soloStagioneAttiva(2, null)).toBe(false);
+    expect(soloStagioneAttiva(undefined, undefined)).toBe(false);
+  });
 });
 
 describe("etichette per ruolo", () => {
@@ -846,10 +863,51 @@ describe("icona e menu dell'account", () => {
     ]);
   });
 
+  it("ospite e collegato senza permesso: nessuna voce di gestione", () => {
+    const ids = (voci: any[]) => new Set(voci.map((v) => v.id));
+    expect(ids(vociMenu(false)).has("voce-registro")).toBe(false);
+    expect(ids(vociMenu(false)).has("voce-exporta")).toBe(false);
+    expect(ids(vociMenu(true, false)).has("voce-registro")).toBe(false);
+    expect(ids(vociMenu(true, false)).has("voce-exporta")).toBe(false);
+    expect(ids(vociMenu(true, true)).has("voce-registro")).toBe(true);
+    expect(ids(vociMenu(true, true)).has("voce-exporta")).toBe(true);
+  });
+
+  it("nella pagina statica non esistono le voci di gestione", () => {
+    const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+    expect(html).not.toMatch(/voce-registro/);
+    expect(html).not.toMatch(/voce-exporta/);
+  });
+
   it("hidden nasconde davvero, anche dove l'autore imposta display", () => {
     // Regressione punto B: .menu-voce { display: flex } vinceva sul
     // display:none di [hidden] e "Accedi" restava visibile nel menu.
     const css = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
     expect(css).toMatch(/\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/);
+  });
+});
+
+describe("registro", () => {
+  it("il dettaglio vuoto o null non produce testo né riquadri", () => {
+    expect(formatoDettaglioRegistro(null)).toBe("");
+    expect(formatoDettaglioRegistro(undefined)).toBe("");
+    expect(formatoDettaglioRegistro("")).toBe("");
+    expect(formatoDettaglioRegistro("   ")).toBe("");
+    expect(formatoDettaglioRegistro("{}")).toBe("");
+  });
+
+  it("il dettaglio con coppie si legge chiave: valore", () => {
+    expect(formatoDettaglioRegistro("chiusa=2025/26; nuova=2026/27; partite=3")).toBe(
+      "chiusa: 2025/26 · nuova: 2026/27 · partite: 3",
+    );
+    expect(formatoDettaglioRegistro('{"target":"a","n":2}')).toBe("target: a · n: 2");
+  });
+
+  it("azione vuota o sconosciuta ha sempre un'etichetta leggibile", () => {
+    expect(etichettaAzioneRegistro("match_create")).toBe("Creata partita");
+    expect(etichettaAzioneRegistro("azione_mai_vista")).toBe("azione_mai_vista");
+    expect(etichettaAzioneRegistro("")).not.toBe("");
+    expect(etichettaAzioneRegistro(null)).not.toBe("");
+    expect(etichettaAzioneRegistro("  ")).not.toBe("");
   });
 });

@@ -14,7 +14,6 @@ import {
   ordinaPerCriteri,
   ordinaRighe,
   prossimoStatoTabella,
-  statoVisibile,
 } from "../ordina.js";
 import { withSeason } from "../routes.js";
 import { bandiera, errore, scheletro, titolo } from "../ui.js";
@@ -77,7 +76,6 @@ function indiceRuoloDi(giocatore) {
 const COLONNA_NOME = { id: "nome", etichetta: "Giocatore", chiave: "name", iniziale: "asc" };
 const COLONNA_RUOLO = { id: "ruolo", etichetta: "Ruolo", chiave: indiceRuoloDi, iniziale: "asc" };
 const COLONNA_OVERALL = { id: "overall", etichetta: "Overall", chiave: "overall", iniziale: "desc" };
-const COLONNA_MIO = { id: "mio", etichetta: "Mio", chiave: "mioEsatto", iniziale: "desc" };
 
 /**
  * Le sei colonne delle mediane con la sola variante del ruolo: sigle
@@ -90,16 +88,12 @@ function colonneMediane(ruolo) {
 
 /** Colonne dei portieri: nessuna colonna Ruolo, sono tutti P. */
 export function colonnePortieri(collegato = false) {
-  const colonne = [COLONNA_NOME, COLONNA_OVERALL, ...colonneMediane("P")];
-  if (collegato) colonne.push(COLONNA_MIO);
-  return colonne;
+  return [COLONNA_NOME, COLONNA_OVERALL, ...colonneMediane("P")];
 }
 
 /** Colonne dei ruoli di movimento: con la colonna Ruolo. */
 export function colonneMovimento(collegato = false) {
-  const colonne = [COLONNA_NOME, COLONNA_RUOLO, COLONNA_OVERALL, ...colonneMediane(ORDINE_RUOLI[1])];
-  if (collegato) colonne.push(COLONNA_MIO);
-  return colonne;
+  return [COLONNA_NOME, COLONNA_RUOLO, COLONNA_OVERALL, ...colonneMediane(ORDINE_RUOLI[1])];
 }
 
 /** Spareggi ufficiali: overall esatto, poi nome. */
@@ -219,14 +213,13 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
   }
 
   const mioIndice = votiPerTarget(votiMiei);
-  // Il "mio overall" per riga: quello esatto per ordinare la colonna
-  // Mio, quello per eccesso per mostrarlo. Niente voti, niente valori.
+  // Il "mio voto" per riga serve alle celle doppie "mediana / mio".
+  // Niente voti, niente valori.
   const righe = (giocatori || []).map((g) => {
     const mio = mioIndice.get(g.id);
     return {
       ...g,
       mioVoto: mio || null,
-      mioEsatto: mio && typeof mio.myOverall === "number" ? mio.myOverall : null,
     };
   });
 
@@ -296,15 +289,6 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
     const celle = colonne.map((colonna) => {
       if (colonna.id === "nome") return el("th", { attrs: { scope: "row" }, children: [bandierina, nome] });
       if (colonna.id === "ruolo") return el("td", { children: [el("span", { className: "pill", text: giocatore.role })] });
-      if (colonna.id === "mio") {
-        return el("td", {
-          className: "tabella-numero tabella-mio",
-          text: mioUp === null ? "—" : String(mioUp),
-          attrs: {
-            "aria-label": mioUp === null ? "Non hai ancora votato questo giocatore" : `Il mio overall è ${mioUp}`,
-          },
-        });
-      }
       if (colonna.id === "overall") {
         return el("td", {
           className: "tabella-numero tabella-doppio",
@@ -377,11 +361,6 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
     const collegato = ctx.collegato();
     const votati = new Set(mioIndice.keys());
     const io = collegato && ctx.me() ? ctx.me().id : null;
-
-    // Se la colonna attiva non c'è più (per esempio "Mio" senza accesso),
-    // la tabella torna al suo ordine iniziale.
-    memoriaPortieri.ordinamento = statoVisibile(memoriaPortieri.ordinamento, colonnePortieri(collegato));
-    memoriaMovimento.ordinamento = statoVisibile(memoriaMovimento.ordinamento, colonneMovimento(collegato));
 
     const tabelle = tabelleGiocatori(
       righe,
