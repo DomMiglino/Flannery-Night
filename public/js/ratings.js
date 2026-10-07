@@ -142,23 +142,45 @@ export function votiPerTarget(voti) {
 }
 
 /**
- * Valori iniziali dei campi di votazione: il mio voto se esiste,
- * altrimenti la mediana ricevuta, altrimenti 75. Restano "non salvati".
+ * Valori iniziali dei campi di voto: il mio voto se esiste,
+ * altrimenti 50. Mai la mediana. Restano "non salvati".
+ * Accetta anche la vecchia chiamata a due argomenti e ignora il primo.
  */
 /**
- * @param {Valori|null} mediane
- * @param {Valori|null} mioVoto
+ * @param {Valori|null} primo mio voto, oppure mediane ignorate per compatibilita'
+ * @param {Valori|null} [secondo] mio voto quando ci sono due argomenti
  * @returns {Valori}
  */
-export function valoriIniziali(mediane, mioVoto) {
+export function valoriIniziali(primo, secondo) {
+  const mioVoto = secondo !== undefined ? secondo : primo;
   const iniziali = {};
   for (const chiave of ATTRIBUTI) {
-    if (mioVoto && mioVoto[chiave] !== null && mioVoto[chiave] !== undefined) {
-      iniziali[chiave] = Number(mioVoto[chiave]);
-      continue;
-    }
-    const mediana = mediane ? mediane[chiave] : null;
-    iniziali[chiave] = mediana === null || mediana === undefined ? 75 : Math.round(Number(mediana));
+    const v = mioVoto ? mioVoto[chiave] : null;
+    iniziali[chiave] = v === null || v === undefined ? 50 : Number(v);
   }
   return iniziali;
+}
+
+/**
+ * Voci da mostrare per i riferimenti di un attributo.
+ * Ogni voce ha etichetta breve, nome intero e punteggio intero.
+ * "unico" non ha etichetta di posizione, solo il nome.
+ * @param {Array<{tipo: string, id: string, nome: string, valore: number}>} riferimenti
+ */
+export function vociRiferimento(riferimenti) {
+  const lista = Array.isArray(riferimenti) ? riferimenti : [];
+  const voci = [];
+  for (const r of lista) {
+    if (!r || typeof r.nome !== "string") continue;
+    const punteggio = Number(r.valore);
+    if (!Number.isFinite(punteggio)) continue;
+    let etichetta = "";
+    if (r.tipo === "basso") etichetta = "Più basso";
+    else if (r.tipo === "medio") etichetta = "Medio";
+    else if (r.tipo === "alto") etichetta = "Più alto";
+    else if (r.tipo === "unico") etichetta = "";
+    else continue;
+    voci.push({ etichetta, nome: r.nome, punteggio, tipo: r.tipo, id: r.id });
+  }
+  return voci;
 }

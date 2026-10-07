@@ -172,7 +172,8 @@ export async function handleApi(request: Request, env: Env, url: URL): Promise<R
   if (head === "ranking" && method === "GET") return ranking(env, url.searchParams.get("season"));
   if (head === "players" && method === "GET" && second === undefined) return players(env);
   if (head === "players" && method === "GET" && second !== undefined) {
-    return playerDetail(env, decodeURIComponent(second), url.searchParams.get("season"));
+    const auth = await currentPlayer(env, request);
+    return playerDetail(env, decodeURIComponent(second), url.searchParams.get("season"), auth !== null);
   }
   if (head === "matches" && method === "GET") return matches(env, url.searchParams.get("season"));
 

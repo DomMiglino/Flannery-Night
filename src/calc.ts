@@ -361,4 +361,100 @@ export function standings(matches: CalcMatch[], playerIds: string[]): PlayerSeas
   });
 }
 
+export type ReferenceType = "basso" | "medio" | "alto" | "unico";
+
+export interface PlayerReference {
+  tipo: ReferenceType;
+  id: string;
+  nome: string;
+  valore: number;
+}
+
+export interface ReferenceCandidate {
+  id: string;
+  nome: string;
+  ruolo: string;
+  mediane: (number | null)[];
+}
+
+/**
+ * Intero mostrato per un riferimento: parte intera verso il basso.
+ * Lavora sui decimi in aritmetica intera: 70,9 -> 70, 70,0 -> 70.
+ * L'ordinamento usa sempre il valore esatto, mai questo intero.
+ */
+export function truncateScore(value: number): number {
+  const decimi = Math.round(Number(value) * 10);
+  return Math.floor(decimi / 10);
+}
+
+function ordinaCandidati(
+  candidati: Array<{ id: string; nome: string; valore: number }>,
+): Array<{ id: string; nome: string; valore: number }> {
+  return [...candidati].sort((a, b) => {
+    if (a.valore !== b.valore) return a.valore - b.valore;
+    const nome = String(a.nome).localeCompare(String(b.nome), "it", { sensitivity: "base" });
+    if (nome !== 0) return nome;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
+/**
+ * Fino a tre riferimenti da una lista di candidati con valore esatto.
+ * n = 0: nessuno; n = 1: solo "unico"; n = 2: "basso" e "alto";
+ * n >= 3: "basso", "medio" con indice floor((n-1)/2), "alto".
+ * Il valore mostrato e' troncato con truncateScore.
+ */
+export function pickReferences(candidati: Array<{ id: string; nome: string; valore: number }>): PlayerReference[] {
+  const validi = (candidati || []).filter(
+    (c) => c && typeof c.id === "string" && typeof c.nome === "string" && Number.isFinite(Number(c.valore)),
+  );
+  const ordinati = ordinaCandidati(validi.map((c) => ({ id: c.id, nome: c.nome, valore: Number(c.valore) })));
+  const n = ordinati.length;
+  if (n === 0) return [];
+  if (n === 1) {
+    const solo = ordinati[0];
+    return [{ tipo: "unico", id: solo.id, nome: solo.nome, valore: truncateScore(solo.valore) }];
+  }
+  if (n === 2) {
+    const primo = ordinati[0];
+    const ultimo = ordinati[1];
+    return [
+      { tipo: "basso", id: primo.id, nome: primo.nome, valore: truncateScore(primo.valore) },
+      { tipo: "alto", id: ultimo.id, nome: ultimo.nome, valore: truncateScore(ultimo.valore) },
+    ];
+  }
+  const primo = ordinati[0];
+  const medio = ordinati[Math.floor((n - 1) / 2)];
+  const ultimo = ordinati[n - 1];
+  return [
+    { tipo: "basso", id: primo.id, nome: primo.nome, valore: truncateScore(primo.valore) },
+    { tipo: "medio", id: medio.id, nome: medio.nome, valore: truncateScore(medio.valore) },
+    { tipo: "alto", id: ultimo.id, nome: ultimo.nome, valore: truncateScore(ultimo.valore) },
+  ];
+}
+
+/**
+ * Sei liste di riferimenti nell'ordine di ATTR_KEYS, per il giocatore
+ * richiesto di ruolo R: solo gli altri giocatori di ruolo R con
+ * mediana valida su quell'attributo. I voti non dipendono dalla
+ * stagione, quindi il risultato non cambia con ?season=.
+ */
+export function buildReferences(targetId: string, targetRole: string, elenco: ReferenceCandidate[]): PlayerReference[][] {
+  const righe: PlayerReference[][] = [];
+  for (let i = 0; i < ATTR_KEYS.length; i++) {
+    const candidati: Array<{ id: string; nome: string; valore: number }> = [];
+    for (const p of elenco || []) {
+      if (!p || p.id === targetId) continue;
+      if (p.ruolo !== targetRole) continue;
+      const mediana = Array.isArray(p.mediane) ? p.mediane[i] : null;
+      if (mediana === null || mediana === undefined) continue;
+      const valore = Number(mediana);
+      if (!Number.isFinite(valore)) continue;
+      candidati.push({ id: p.id, nome: p.nome, valore });
+    }
+    righe.push(pickReferences(candidati));
+  }
+  return righe;
+}
+
 export const __ATTR_KEYS = ATTR_KEYS;

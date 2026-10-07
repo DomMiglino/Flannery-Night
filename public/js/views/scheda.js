@@ -3,8 +3,8 @@
 
 import { ApiError, api, nonAutorizzato } from "../api.js";
 import { clear, el } from "../dom.js";
-import { clamp, formatNumber, formatOverall, formatVotes } from "../format.js";
-import { ATTRIBUTI, etichettePerRuolo, valoriDaVoto, valoriIniziali, votiPerTarget } from "../ratings.js";
+import { clamp, formatNumber, formatVotes } from "../format.js";
+import { ATTRIBUTI, etichettePerRuolo, valoriDaVoto, valoriIniziali, vociRiferimento, votiPerTarget } from "../ratings.js";
 import { cella, errore, esiti, rendimento, riepilogo, scheletro, titolo } from "../ui.js";
 
 export async function renderScheda(root, ctx, playerId, conferma = null) {
@@ -143,12 +143,12 @@ export async function renderScheda(root, ctx, playerId, conferma = null) {
   }
 
   root.append(el("h3", { className: "titolo-gruppo", text: "Il tuo voto" }));
-  root.append(renderVotazione(scheda, mediana, mioVoto, ctx, conferma));
+  root.append(renderVotazione(scheda, scheda.riferimenti, mioVoto, ctx, conferma));
 }
 
-function renderVotazione(scheda, mediana, mioVoto, ctx, conferma) {
+function renderVotazione(scheda, riferimenti, mioVoto, ctx, conferma) {
   const salvato = mioVoto !== null;
-  const valori = valoriIniziali(mediana, valoriDaVoto(mioVoto));
+  const valori = valoriIniziali(valoriDaVoto(mioVoto));
   // Un solo nome per attributo: variante da portiere per il ruolo P.
   const etichette = etichettePerRuolo(scheda.role);
 
@@ -193,33 +193,44 @@ function renderVotazione(scheda, mediana, mioVoto, ctx, conferma) {
       }
     };
 
-    righe.append(
-      el("div", {
-        className: "voto-riga",
+    const indice = ATTRIBUTI.indexOf(chiave);
+    const lista = Array.isArray(riferimenti) && Array.isArray(riferimenti[indice]) ? riferimenti[indice] : [];
+    const voci = vociRiferimento(lista);
+    const figliRiga = [el("span", { className: "voto-nome", text: sigla, attrs: { title: significato } })];
+    if (voci.length > 0) {
+      const nodiVoci = voci.map((voce) => {
+        const testo = voce.etichetta ? `${voce.etichetta}: ${voce.nome} ${voce.punteggio}` : `${voce.nome} ${voce.punteggio}`;
+        const dentro = [];
+        if (voce.tipo === "basso") dentro.push(el("span", { className: "voto-freccia", text: "↓", attrs: { "aria-hidden": "true" } }));
+        else if (voce.tipo === "alto") dentro.push(el("span", { className: "voto-freccia", text: "↑", attrs: { "aria-hidden": "true" } }));
+        else if (voce.tipo === "medio") dentro.push(el("span", { className: "voto-freccia", text: "→", attrs: { "aria-hidden": "true" } }));
+        dentro.push(el("span", { text: testo }));
+        return el("span", { className: "voto-riferimento", children: dentro });
+      });
+      figliRiga.push(el("div", { className: "voto-riferimenti", children: nodiVoci }));
+    }
+    figliRiga.push(
+      el("span", {
+        className: "voto-controlli",
         children: [
-          el("span", { className: "voto-nome", text: sigla, attrs: { title: significato } }),
-          el("span", { className: "voto-mediana", text: `mediana ${mediana[chiave] === null ? "—" : formatOverall(mediana[chiave])}` }),
-          el("span", {
-            className: "voto-controlli",
-            children: [
-              el("button", {
-                className: "voto-passo",
-                text: "−",
-                attrs: { type: "button", "aria-label": `Un punto in meno a ${significato}` },
-                on: { click: () => sposta(-1) },
-              }),
-              campo,
-              el("button", {
-                className: "voto-passo",
-                text: "+",
-                attrs: { type: "button", "aria-label": `Un punto in più a ${significato}` },
-                on: { click: () => sposta(1) },
-              }),
-            ],
+          el("button", {
+            className: "voto-passo",
+            text: "−",
+            attrs: { type: "button", "aria-label": `Un punto in meno a ${significato}` },
+            on: { click: () => sposta(-1) },
+          }),
+          campo,
+          el("button", {
+            className: "voto-passo",
+            text: "+",
+            attrs: { type: "button", "aria-label": `Un punto in più a ${significato}` },
+            on: { click: () => sposta(1) },
           }),
         ],
       }),
     );
+
+    righe.append(el("div", { className: "voto-riga", children: figliRiga }));
   }
 
   const invia = el("button", { className: "pulsante pulsante-grande", text: "Salva voto", attrs: { type: "submit" } });

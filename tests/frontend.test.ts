@@ -17,7 +17,7 @@ import {
   valuesInOrder,
 } from "../public/js/hexagon.js";
 import { activeNav, homePath, navItems, needsSeason, normalizePath, resolveRoute, seasonFromSearch, withSeason } from "../public/js/routes.js";
-import { PESI, etichettePerRuolo, myOverall, valoriDaVoto, valoriIniziali, median, votiPerTarget } from "../public/js/ratings.js";
+import { PESI, etichettePerRuolo, myOverall, valoriDaVoto, valoriIniziali, median, vociRiferimento, votiPerTarget } from "../public/js/ratings.js";
 import { clamp, flagUrl, formatDate, formatNumber, formatOverall, formatOverallUp, formatShortDate, formatVotes, formaLabel, stepValue } from "../public/js/format.js";
 import { filterPlayers, rolesOf, separaPortieri, withAppearances } from "../public/js/lists.js";
 import {
@@ -246,16 +246,45 @@ describe("il mio overall", () => {
     expect(median([])).toBeNull();
   });
 
-  it("i campi partono dalla mediana, o da 75 se non c'è", () => {
-    const senza = valoriIniziali({ velTuf: 80, tirPre: null } as any, null);
-    expect(senza.velTuf).toBe(80);
-    expect(senza.tirPre).toBe(75);
+  it("i campi partono da 50 senza mio voto, mai dalla mediana", () => {
+    const senza = valoriIniziali(null);
+    expect(senza.velTuf).toBe(50);
+    expect(senza.tirPre).toBe(50);
+    expect(senza.passRin).toBe(50);
+    expect(senza.driRif).toBe(50);
+    expect(senza.difRea).toBe(50);
+    expect(senza.fisPia).toBe(50);
+    // Anche la vecchia chiamata a due argomenti ignora la mediana.
+    const vecchia = valoriIniziali({ velTuf: 80, tirPre: null } as any, null);
+    expect(vecchia.velTuf).toBe(50);
+    expect(vecchia.tirPre).toBe(50);
   });
 
   it("se ho già votato, i campi partono dal mio voto", () => {
-    const iniziali = valoriIniziali({ velTuf: 80 } as any, { velTuf: 33, tirPre: 44 } as any);
+    const iniziali = valoriIniziali({ velTuf: 33, tirPre: 44 } as any);
     expect(iniziali.velTuf).toBe(33);
     expect(iniziali.tirPre).toBe(44);
+    // Compatibilita' con la chiamata a due argomenti: il primo e' ignorato.
+    const due = valoriIniziali({ velTuf: 80 } as any, { velTuf: 33, tirPre: 44 } as any);
+    expect(due.velTuf).toBe(33);
+    expect(due.tirPre).toBe(44);
+  });
+
+  it("le voci dei riferimenti hanno etichetta, nome intero e punteggio intero", () => {
+    const tre = vociRiferimento([
+      { tipo: "basso", id: "a", nome: "Salvio", valore: 62 },
+      { tipo: "medio", id: "b", nome: "Bruno", valore: 70 },
+      { tipo: "alto", id: "c", nome: "Carlo", valore: 85 },
+    ] as any);
+    expect(tre.map((v: any) => v.etichetta)).toEqual(["Più basso", "Medio", "Più alto"]);
+    expect(tre.map((v: any) => v.nome)).toEqual(["Salvio", "Bruno", "Carlo"]);
+    expect(tre.map((v: any) => v.punteggio)).toEqual([62, 70, 85]);
+    const unico = vociRiferimento([{ tipo: "unico", id: "a", nome: "Salvio Rossi", valore: 70 }] as any);
+    expect(unico).toHaveLength(1);
+    expect(unico[0].etichetta).toBe("");
+    expect(unico[0].nome).toBe("Salvio Rossi");
+    expect(vociRiferimento([])).toEqual([]);
+    expect(vociRiferimento(null as any)).toEqual([]);
   });
 
   it("legge una riga di /api/me/votes e la indicizza per giocatore", () => {

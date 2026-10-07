@@ -1,7 +1,7 @@
 // PASSO 3: rotte pubbliche di lettura. Nessun accesso richiesto.
 // Escono solo mediane e conteggi: mai un voto singolo, mai salt o hash.
 
-import { mediaPerPartita, playerSeason, publishedSorted, puntiStagione, summarizeVotes, teamOutcomes, teamScores, type CalcMatch, type RatingSummary } from "../calc";
+import { buildReferences, mediaPerPartita, playerSeason, publishedSorted, puntiStagione, summarizeVotes, teamOutcomes, teamScores, type CalcMatch, type RatingSummary } from "../calc";
 import type { Env } from "../env";
 import { fail, json, MSG } from "../http";
 import {
@@ -100,10 +100,16 @@ export async function players(env: Env): Promise<Response> {
   return json({ players: out });
 }
 
-export async function playerDetail(env: Env, id: string, seasonParam: string | null): Promise<Response> {
+export async function playerDetail(
+  env: Env,
+  id: string,
+  seasonParam: string | null,
+  isAuthed = false,
+): Promise<Response> {
   const season = await resolveSeason(env, seasonParam);
   if (!season) return fail(404, MSG.notFound);
-  const player = await listPlayers(env).then((all) => all.find((p) => p.id === id) ?? null);
+  const all = await listPlayers(env);
+  const player = all.find((p) => p.id === id) ?? null;
   if (!player) return fail(404, MSG.notFound);
 
   const votesByTarget = await loadVotesByTarget(env);
@@ -115,6 +121,29 @@ export async function playerDetail(env: Env, id: string, seasonParam: string | n
   const guidinha = (await loadGuidinhaCounts(env, season.id)).get(player.id) ?? 0;
   const last5 = latestMatches(matches, player.id, 5);
 
+  // Riferimenti di ruolo per il blocco di voto: solo per chi ha
+  // fatto l'accesso, gli ospiti non li ricevono. Stesse mediane
+  // della tabella Giocatori, nessuna lettura in piu' oltre a quelle
+  // gia' fatte qui (giocatori e voti). I voti non dipendono dalla
+  // stagione, quindi il valore non cambia con ?season=.
+  // Il voto appena dato riguarda il target e non tocca le mediane
+  // degli altri, per questo dopo "Salva voto" i riferimenti restano.
+  let riferimenti: ReturnType<typeof buildReferences> | undefined;
+  if (isAuthed) {
+    const elenco = all
+      .filter((p) => p.role === player.role)
+      .map((p) => {
+        const riepilogo = p.id === player.id ? summary : summarizeVotes(p.role, votesByTarget.get(p.id) ?? []);
+        return {
+          id: p.id,
+          nome: p.name,
+          ruolo: p.role,
+          mediane: [riepilogo.vel_tuf, riepilogo.tir_pre, riepilogo.pass_rin, riepilogo.dri_rif, riepilogo.dif_rea, riepilogo.fis_pia],
+        };
+      });
+    riferimenti = buildReferences(player.id, player.role, elenco);
+  }
+
   return json({
     id: player.id,
     name: player.name,
@@ -122,6 +151,7 @@ export async function playerDetail(env: Env, id: string, seasonParam: string | n
     flag: player.flag,
     votes: summary.voters,
     ...medianFields(summary),
+    ...(isAuthed && riferimenti ? { riferimenti } : {}),
     season: { id: season.id, name: season.name },
     stats: {
       played: stats.played,
