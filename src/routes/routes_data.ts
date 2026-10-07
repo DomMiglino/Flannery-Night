@@ -126,8 +126,9 @@ export async function playerDetail(
   // della tabella Giocatori, nessuna lettura in piu' oltre a quelle
   // gia' fatte qui (giocatori e voti). I voti non dipendono dalla
   // stagione, quindi il valore non cambia con ?season=.
-  // Il voto appena dato riguarda il target e non tocca le mediane
-  // degli altri, per questo dopo "Salva voto" i riferimenti restano.
+  // Il voto appena dato riguarda il target e tocca anche la sua
+  // mediana: siccome il target è incluso nei riferimenti, dopo
+  // "Salva voto" i riferimenti possono muoversi.
   let riferimenti: ReturnType<typeof buildReferences> | undefined;
   if (isAuthed) {
     const elenco = all

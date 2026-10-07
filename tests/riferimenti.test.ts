@@ -59,11 +59,11 @@ describe("scelta dei riferimenti da mediane note", () => {
   it("quattro candidati: basso, medio con indice floor((n-1)/2), alto", () => {
     const righe = buildReferences("t", ruolo, elencoQuattro());
     expect(righe).toHaveLength(6);
-    // n = 4, medio in posizione 1: il secondo in ordine.
+    // n = 5 con il target incluso, medio in posizione 2: il terzo in ordine.
     for (const riga of righe) {
       expect(riga.map((r) => r.tipo)).toEqual(["basso", "medio", "alto"]);
-      expect(riga.map((r) => r.nome)).toEqual(["Anna", "Bruno", "Dario"]);
-      expect(riga.map((r) => r.valore)).toEqual([60, 70, 85]);
+      expect(riga.map((r) => r.nome)).toEqual(["Target", "Bruno", "Dario"]);
+      expect(riga.map((r) => r.valore)).toEqual([50, 70, 85]);
     }
   });
 
@@ -77,7 +77,7 @@ describe("scelta dei riferimenti da mediane note", () => {
     const righe = buildReferences("t", ruolo, elenco);
     for (const riga of righe) {
       expect(riga.map((r) => r.tipo)).toEqual(["basso", "medio", "alto"]);
-      expect(riga.map((r) => r.nome)).toEqual(["Anna", "Bruno", "Carlo"]);
+      expect(riga.map((r) => r.nome)).toEqual(["Target", "Anna", "Carlo"]);
     }
   });
 
@@ -101,13 +101,17 @@ describe("scelta dei riferimenti da mediane note", () => {
   it("n = 0: array vuoto", () => {
     expect(pickReferences([])).toEqual([]);
     const righe = buildReferences("t", ruolo, [{ id: "t", nome: "Target", ruolo, mediane: [50, 50, 50, 50, 50, 50] }]);
-    for (const riga of righe) expect(riga).toEqual([]);
+    for (const riga of righe) {
+      expect(riga).toHaveLength(1);
+      expect(riga[0].tipo).toBe("unico");
+      expect(riga[0].id).toBe("t");
+    }
   });
 
-  it("il richiesto non compare mai", () => {
+  it("il richiesto è incluso", () => {
     const righe = buildReferences("t", ruolo, elencoQuattro());
     for (const riga of righe) {
-      expect(riga.map((r) => r.id)).not.toContain("t");
+      expect(riga.map((r) => r.id)).toContain("t");
     }
   });
 
@@ -129,13 +133,17 @@ describe("scelta dei riferimenti da mediane note", () => {
     ];
     const righe = buildReferences("t", "CC", elenco);
     for (const riga of righe) {
-      expect(riga.map((r) => r.id)).toEqual(["c1"]);
+      expect(riga.map((r) => r.id)).toEqual(["t", "c1"]);
     }
     const righeP = buildReferences("p1", "P", [
       { id: "p1", nome: "Pietro", ruolo: "P", mediane: [90, 90, 90, 90, 90, 90] },
       { id: "c1", nome: "Carlo", ruolo: "CC", mediane: [60, 60, 60, 60, 60, 60] },
     ]);
-    for (const riga of righeP) expect(riga).toEqual([]);
+    for (const riga of righeP) {
+      expect(riga).toHaveLength(1);
+      expect(riga[0].id).toBe("p1");
+      expect(riga[0].tipo).toBe("unico");
+    }
   });
 
   it("senza voti non entra: mediana null scartata", () => {
@@ -145,11 +153,11 @@ describe("scelta dei riferimenti da mediane note", () => {
       { id: "b", nome: "Bruno", ruolo, mediane: [70, null, 70, null, 70, null] },
     ];
     const righe = buildReferences("t", ruolo, elenco);
-    // Attributo 0: solo Bruno; attributo 1: solo Anna.
-    expect(righe[0].map((r) => r.id)).toEqual(["b"]);
-    expect(righe[0][0].tipo).toBe("unico");
-    expect(righe[1].map((r) => r.id)).toEqual(["a"]);
-    expect(righe[1][0].tipo).toBe("unico");
+    // Attributo 0: Target + Bruno; attributo 1: Target + Anna.
+    expect(righe[0].map((r) => r.id)).toEqual(["t", "b"]);
+    expect(righe[0].map((r) => r.tipo)).toEqual(["basso", "alto"]);
+    expect(righe[1].map((r) => r.id)).toEqual(["t", "a"]);
+    expect(righe[1].map((r) => r.tipo)).toEqual(["basso", "alto"]);
   });
 });
 
@@ -239,7 +247,7 @@ describe("risposta della scheda via API", () => {
     expect(res.text).not.toContain("salt");
   });
 
-  it("fake-cinque vede antonio e fake-esterno, mai se stesso", async () => {
+  it("fake-cinque senza voti vede solo antonio e fake-esterno", async () => {
     const cookie = await asPlayer("antonio", PIN.antonio);
     const res = await s.call("/api/players/fake-cinque", { cookie });
     expect(res.status).toBe(200);
@@ -256,14 +264,15 @@ describe("risposta della scheda via API", () => {
     expect(prima.find((v: any) => v.tipo === "alto").valore).toBe(70);
   });
 
-  it("un solo altro dello stesso ruolo: unico", async () => {
+  it("antonio vede se stesso e fake-esterno", async () => {
     const cookie = await asPlayer("antonio", PIN.antonio);
     const res = await s.call("/api/players/antonio", { cookie });
     expect(res.status).toBe(200);
     for (const riga of res.body.riferimenti) {
-      expect(riga).toHaveLength(1);
-      expect(riga[0].tipo).toBe("unico");
-      expect(riga[0].id).toBe("fake-esterno");
+      const ids = riga.map((v: { id: string }) => v.id).sort();
+      expect(ids).toEqual(["antonio", "fake-esterno"]);
+      const tipi = riga.map((v: { tipo: string }) => v.tipo).sort();
+      expect(tipi).toEqual(["alto", "basso"]);
     }
   });
 
@@ -284,7 +293,7 @@ describe("risposta della scheda via API", () => {
     expect(seconda.body.riferimenti).toEqual(prima.body.riferimenti);
   });
 
-  it("dopo Salva voto i riferimenti non cambiano", async () => {
+  it("dopo Salva voto i riferimenti includono il votato", async () => {
     const cookie = await asPlayer("antonio", PIN.antonio);
     const prima = await s.call("/api/players/fake-cinque", { cookie });
     const voto = await s.call("/api/votes/fake-cinque", {
@@ -294,6 +303,12 @@ describe("risposta della scheda via API", () => {
     });
     expect(voto.status).toBe(200);
     const dopo = await s.call("/api/players/fake-cinque", { cookie });
-    expect(dopo.body.riferimenti).toEqual(prima.body.riferimenti);
+    // Il votato ora ha una mediana e compare nei suoi stessi riferimenti come "basso".
+    expect(dopo.body.riferimenti).not.toEqual(prima.body.riferimenti);
+    for (const riga of dopo.body.riferimenti) {
+      const ids = riga.map((v: { id: string }) => v.id);
+      expect(ids).toContain("fake-cinque");
+      expect(riga.find((v: any) => v.id === "fake-cinque").tipo).toBe("basso");
+    }
   });
 });

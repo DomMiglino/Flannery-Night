@@ -435,16 +435,19 @@ export function pickReferences(candidati: Array<{ id: string; nome: string; valo
 
 /**
  * Sei liste di riferimenti nell'ordine di ATTR_KEYS, per il giocatore
- * richiesto di ruolo R: solo gli altri giocatori di ruolo R con
- * mediana valida su quell'attributo. I voti non dipendono dalla
- * stagione, quindi il risultato non cambia con ?season=.
+ * richiesto di ruolo R: tutti i giocatori di ruolo R con
+ * mediana valida su quell'attributo, incluso il richiesto stesso.
+ * I voti non dipendono dalla stagione, quindi il risultato
+ * non cambia con ?season=, ma cambia quando il richiesto riceve
+ * nuovi voti perché la sua mediana si muove.
  */
 export function buildReferences(targetId: string, targetRole: string, elenco: ReferenceCandidate[]): PlayerReference[][] {
+  void targetId;
   const righe: PlayerReference[][] = [];
   for (let i = 0; i < ATTR_KEYS.length; i++) {
     const candidati: Array<{ id: string; nome: string; valore: number }> = [];
     for (const p of elenco || []) {
-      if (!p || p.id === targetId) continue;
+      if (!p) continue;
       if (p.ruolo !== targetRole) continue;
       const mediana = Array.isArray(p.mediane) ? p.mediane[i] : null;
       if (mediana === null || mediana === undefined) continue;
