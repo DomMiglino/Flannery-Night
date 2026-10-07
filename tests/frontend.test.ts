@@ -31,13 +31,16 @@ import {
 import { etichetteGol, formatoPartita, guidinhaLinea, matchHeadline, sortTeamPlayers } from "../public/js/matches.js";
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
-import { fasciaOverall, mostraNuovaStagione, soloStagioneAttiva, suggerisciNomeStagione, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
+import { fasciaOverall, hrefPremi, mostraNuovaStagione, mostraTastoPremi, soloStagioneAttiva, suggerisciNomeStagione, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
 import { testoDoppio, testoCella, colonnePortieri, colonneMovimento, INIZIALE_PORTIERI, INIZIALE_MOVIMENTO, tabelleGiocatori } from "../public/js/views/giocatori.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
 import { etichettaAzioneRegistro, formatoDettaglioRegistro } from "../public/js/views/registro.js";
 import { formatoOra, validaDatiGiocatore } from "../public/js/views/editor_giocatore.js";
 import { azioneAccount, impostaCollegato, isCollegato, prendiReturnTo, ricordaReturnTo, utenteCollegato, vociMenu } from "../public/js/state.js";
-import { readFileSync } from "node:fs";
+import { PREMI, TITOLO_PAGINA, hrefClassifica, hrefContest, testoPremio } from "../public/js/views/contest.js";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ROLE_WEIGHTS, overallForRole } from "../src/calc";
 
 interface SeiValori {
@@ -909,5 +912,140 @@ describe("registro", () => {
     expect(etichettaAzioneRegistro("")).not.toBe("");
     expect(etichettaAzioneRegistro(null)).not.toBe("");
     expect(etichettaAzioneRegistro("  ")).not.toBe("");
+  });
+});
+
+describe("pagina contest", () => {
+  it("/contest è pubblico, anche senza accesso", () => {
+    expect(resolveRoute("/contest", { authed: false }).name).toBe("contest");
+    expect(resolveRoute("/contest", { authed: true }).name).toBe("contest");
+    expect(resolveRoute("/contest/", { authed: false }).name).toBe("contest");
+    expect(resolveRoute("/contest", { authed: false, search: "?stagione=2" }).season).toBe(2);
+  });
+
+  it("i percorsi esistenti restano come prima", () => {
+    expect(resolveRoute("/classifica").name).toBe("classifica");
+    expect(resolveRoute("/accesso").name).toBe("accesso");
+    expect(resolveRoute("/home", { authed: false }).redirect).toBe("/accesso");
+    expect(resolveRoute("/home", { authed: true }).name).toBe("home");
+  });
+
+  it("su /contest la barra resta a quattro voci e resta accesa Classifica", () => {
+    expect(navItems(false)).toHaveLength(4);
+    expect(navItems(true)).toHaveLength(4);
+    expect(navItems(false).some((v) => v.href === "/contest")).toBe(false);
+    expect(navItems(true).some((v) => v.href === "/contest")).toBe(false);
+    expect(activeNav("contest")).toBe("classifica");
+    expect(needsSeason("contest")).toBe(false);
+  });
+
+  it("gli indirizzi del contest tengono la stagione", () => {
+    expect(hrefContest(2)).toBe("/contest?stagione=2");
+    expect(hrefContest(null)).toBe("/contest");
+    expect(hrefClassifica(3)).toBe("/classifica?stagione=3");
+    expect(hrefClassifica(null)).toBe("/classifica");
+    expect(hrefPremi(2)).toBe("/contest?stagione=2");
+    expect(hrefPremi(null)).toBe("/contest");
+  });
+});
+
+describe("tasto Premi della stagione", () => {
+  it("si vede per ospite, collegato e chi gestisce, anche con classifica vuota", () => {
+    expect(mostraTastoPremi(null, [])).toBe(true);
+    expect(mostraTastoPremi(null, null)).toBe(true);
+    expect(mostraTastoPremi({ id: "a", isAdmin: false }, [])).toBe(true);
+    expect(mostraTastoPremi({ id: "a", isAdmin: false }, [{ id: "x" }])).toBe(true);
+    expect(mostraTastoPremi({ id: "a", isAdmin: true }, [])).toBe(true);
+    expect(mostraTastoPremi({ id: "a", isAdmin: true }, [{ id: "x" }])).toBe(true);
+  });
+});
+
+describe("titolo ed emoji del contest", () => {
+  const SIMBOLI = ["🏆", "🍺", "🥇", "🥈", "🥉", "👕", "🍔", "📅", "⚽", "🏅", "📸", "⬅"];
+
+  it("il nuovo titolo c'è, il vecchio no", () => {
+    const sorgente = readFileSync(new URL("../public/js/views/contest.js", import.meta.url), "utf8");
+    expect(sorgente).toContain("Premi Flannery");
+    expect(sorgente).not.toContain("Il contest del Flannery Pub");
+    expect(TITOLO_PAGINA).toBe("Premi Flannery");
+  });
+
+  it("i tre premi hanno etichetta 1°/2°/3° e il testo noto senza simboli", () => {
+    expect(PREMI.map((p) => p.posto)).toEqual(["1° classificato", "2° classificato", "3° classificato"]);
+    expect(testoPremio(PREMI[0])).toBe(
+      "T-shirt celebrativa con nome personalizzato e le firme di tutti i partecipanti; panino e birra da 1 litro.",
+    );
+    expect(testoPremio(PREMI[1])).toBe("T-shirt Guinness; panino e birra da mezzo litro.");
+    expect(testoPremio(PREMI[2])).toBe("panino e birra da mezzo litro.");
+    for (const premio of PREMI) {
+      for (const simbolo of SIMBOLI) {
+        expect(testoPremio(premio)).not.toContain(simbolo);
+        expect(premio.posto).not.toContain(simbolo);
+      }
+    }
+  });
+
+  it("ogni simbolo grafico sta in una chiamata voceIcona con aria-hidden", () => {
+    const sorgente = readFileSync(new URL("../public/js/views/contest.js", import.meta.url), "utf8");
+    for (const simbolo of SIMBOLI) expect(sorgente).toContain(simbolo);
+    expect(sorgente).toMatch(/function voceIcona[\s\S]*?aria-hidden/);
+    const senzaVoci = sorgente.replace(/voceIcona\(".*?"\)/g, "");
+    for (const simbolo of SIMBOLI) expect(senzaVoci).not.toContain(simbolo);
+  });
+
+  it("i testi noti restano nella pagina", () => {
+    const sorgente = readFileSync(new URL("../public/js/views/contest.js", import.meta.url), "utf8");
+    expect(sorgente).toContain("luglio 2027");
+    expect(sorgente).toContain("30 presenze");
+    expect(sorgente).toContain("Torna alla Classifica");
+    expect(sorgente).toContain("Segui il Flannery Pub su Instagram");
+  });
+});
+
+describe("stile del contest", () => {
+  it("[hidden] resta e riduci movimento ferma tutto", () => {
+    const css = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/);
+    expect(css).toMatch(/prefers-reduced-motion\s*:\s*reduce/);
+    expect(css).toContain("contest-entrata");
+  });
+});
+
+describe("collegamento Instagram", () => {
+  function raccogliFile(cartella: string): string[] {
+    const lista: string[] = [];
+    const coda: string[] = [cartella];
+    while (coda.length > 0) {
+      const dir = coda.pop() as string;
+      for (const voce of readdirSync(dir)) {
+        const pieno = join(dir, voce as string);
+        if (statSync(pieno).isDirectory()) coda.push(pieno);
+        else lista.push(pieno);
+      }
+    }
+    return lista;
+  }
+
+  it("una sola occorrenza in public/, solo in contest.js, con rel sicura", () => {
+    const publicDir = fileURLToPath(new URL("../public/", import.meta.url));
+    const files = raccogliFile(publicDir);
+    const conMarca: string[] = [];
+    let totale = 0;
+    for (const f of files) {
+      const testo = readFileSync(f, "utf8").toLowerCase();
+      const parti = testo.split("instagram.com");
+      const conta = parti.length - 1;
+      if (conta > 0) {
+        totale += conta;
+        conMarca.push(f);
+      }
+    }
+    expect(totale).toBe(1);
+    expect(conMarca).toHaveLength(1);
+    expect(conMarca[0].replace(/\\/g, "/")).toMatch(/views\/contest\.js$/);
+    const sorgente = readFileSync(conMarca[0], "utf8");
+    expect(sorgente).toContain("https://www.instagram.com/flannerypub/?hl=it");
+    expect(sorgente).toContain("noopener noreferrer");
+    expect(sorgente).toContain("_blank");
   });
 });

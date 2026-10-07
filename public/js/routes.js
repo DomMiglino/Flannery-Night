@@ -1,5 +1,5 @@
 // Passo 4: risoluzione dei percorsi. Funzioni pure, senza DOM.
-// Le rotte dell'interfaccia sono /classifica, /giocatori, /giocatori/:id,
+// Le rotte dell'interfaccia sono /classifica, /contest, /giocatori, /giocatori/:id,
 // /partite, /home (solo con accesso) e /accesso per entrare.
 
 export const VISTA = {
@@ -11,6 +11,7 @@ export const VISTA = {
   accesso: "accesso",
   cambia: "cambia",
   registro: "registro",
+  contest: "contest",
 };
 
 /** Percorso iniziale: chi non è entrato va in classifica, chi è entrato in home. */
@@ -59,6 +60,7 @@ export function resolveRoute(pathname, { authed = false, search = "" } = {}) {
   // vale per tocco sulla voce Home, link diretto, refresh e indietro.
   if (path === "/home") return authed ? { name: VISTA.home, season } : { redirect: "/accesso", season };
   if (path === "/classifica") return { name: VISTA.classifica, season };
+  if (path === "/contest") return { name: VISTA.contest, season };
   if (path === "/giocatori") return { name: VISTA.giocatori, season };
   if (path === "/giocatori/nuovo") return { name: VISTA.giocatori, sotto: "nuovo", season };
   if (path.startsWith("/giocatori/")) {
@@ -109,5 +111,6 @@ export function needsSeason(name) {
 /** La voce della barra da segnare come corrente. */
 export function activeNav(routeName, playerId) {
   if (routeName === VISTA.scheda) return VISTA.giocatori;
+  if (routeName === VISTA.contest) return VISTA.classifica;
   return routeName;
 }

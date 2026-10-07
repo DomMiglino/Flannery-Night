@@ -102,6 +102,24 @@ export function soloStagioneAttiva(seasonId, attivaId) {
   return Number(seasonId) === Number(attivaId);
 }
 
+export const PERCORSO_PREMI = "/contest";
+
+/**
+ * Il tasto dei premi si mostra a tutti, anche con classifica vuota:
+ * ospite, collegato e chi gestisce vedono lo stesso collegamento.
+ * @param {{ [chiave: string]: any, isAdmin?: boolean } | null | undefined} [_utente] chi guarda, mai usato per filtrare
+ * @param {Array<any> | null | undefined} [_righe] righe in classifica, mai usate per filtrare
+ * @returns {boolean}
+ */
+export function mostraTastoPremi(_utente = null, _righe = null) {
+  return true;
+}
+
+/** Indirizzo del contest, con la stagione scelta quando c'è. */
+export function hrefPremi(stagione) {
+  return withSeason(PERCORSO_PREMI, stagione);
+}
+
 const COLONNE = [
   { id: "nome", etichetta: "Giocatore", completa: "Giocatore", chiave: "name", iniziale: "asc" },
   { id: "power", etichetta: "FPS", completa: "Flannery Power Score", chiave: "powerScore", iniziale: "desc" },
@@ -364,6 +382,19 @@ export async function renderClassifica(root, ctx) {
   clear(root);
   root.append(titolo("Classifica"));
   root.append(el("p", { className: "nota", text: `${risposta.season.name} · ${righe.length} in classifica` }));
+
+  // Tasto verso il contest: sta su root, sopra la tabella e fuori da
+  // contenitore, così i clear(contenitore) dei riordini non lo cancellano.
+  // Si vede a tutti, anche con classifica vuota.
+  if (mostraTastoPremi(utenteCollegato(), righe)) {
+    const premi = el("a", {
+      className: "pulsante pulsante-grande tasto-gestione-separato",
+      attrs: { href: hrefPremi(ctx.stagione()) },
+      text: "🏆 Premi della stagione",
+    });
+    linkInterno(premi, ctx.navigate);
+    root.append(premi);
+  }
 
   if (righe.length === 0) {
     root.append(el("p", { className: "nota", text: "Non risultano ancora partite pubblicate." }));

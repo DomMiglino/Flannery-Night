@@ -31,6 +31,7 @@ import {
 } from "./routes.js";
 import { renderAccesso, renderCambiaPin } from "./views/accesso.js";
 import { renderClassifica } from "./views/classifica.js";
+import { renderContest } from "./views/contest.js";
 import { renderGiocatori } from "./views/giocatori.js";
 import { renderHome } from "./views/home.js";
 import { renderPartite } from "./views/partite.js";
@@ -253,6 +254,9 @@ async function disegna() {
       case "classifica":
         await renderClassifica(dom.contenuto, ctx);
         break;
+      case "contest":
+        await renderContest(dom.contenuto, ctx);
+        break;
       case "giocatori":
         await renderGiocatori(dom.contenuto, ctx, scelta);
         break;
@@ -291,6 +295,7 @@ async function disegna() {
 function titoloPagina(nome) {
   if (nome === "home") return "Home · Flannery Night";
   if (nome === "classifica") return "Classifica · Flannery Night";
+  if (nome === "contest") return "Contest · Flannery Night";
   if (nome === "giocatori") return "Giocatori · Flannery Night";
   if (nome === "scheda") return "Giocatore · Flannery Night";
   if (nome === "partite") return "Partite · Flannery Night";

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { FLAGS } from "../src/flags_list";
+import { testoBandiere } from "../scripts/genera-bandiere.mjs";
 import { elencoBandiere } from "../src/routes/routes_players_admin";
 import { withAppearances } from "../public/js/lists.js";
 import { PIN, sessionCookie, startServer, type TestServer } from "./helpers/server";
@@ -352,6 +353,12 @@ describe("bandiere", () => {
       .sort((a, b) => a.localeCompare(b, "it", { sensitivity: "base" }));
     expect(FLAGS.map((flag) => flag.filename)).toEqual(files);
     expect(FLAGS.every((flag) => flag.filename.endsWith(".png"))).toBe(true);
+  });
+
+  it("generare due volte lo stesso elenco dà lo stesso testo", () => {
+    const elenco = ["Tunisia.png", "Argentina.png", "Italia.png"];
+    expect(testoBandiere([...elenco].reverse())).toBe(testoBandiere(elenco));
+    expect(testoBandiere(elenco)).not.toContain("\r");
   });
 
   it("se la lista manca indica come rigenerarla; l'endpoint richiede il permesso", async () => {
