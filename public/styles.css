@@ -310,6 +310,12 @@ button {
   color: var(--avviso);
 }
 
+/* Avviso dei voti in rosso: piccolo e dello stesso rosso. */
+.nota-rossi {
+  color: var(--negativo);
+  font-size: 0.75rem;
+}
+
 /* ---------- legenda overall: tasto "i" e popup dei pesi ---------- */
 
 /* Cerchio affiancato alla legenda, piccolo ma ben visibile. */
@@ -725,6 +731,12 @@ body.popup-aperto {
   font-size: 0.8em;
   font-weight: 400;
   color: var(--testo-2);
+}
+
+/* Il mio voto di almeno 8 punti sotto la mediana: cella rossa. */
+.tabella-basso,
+.tabella-basso .tabella-mio {
+  color: var(--negativo);
 }
 
 /* Nomi nell'accesso: solo il nome, intero e a capo, mai troncato. */

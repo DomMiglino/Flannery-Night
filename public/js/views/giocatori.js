@@ -62,6 +62,18 @@ export function testoCella(sinistra, destro, collegato, propria = false) {
 }
 
 /**
+ * Vero se il mio voto sta almeno 8 punti sotto la mediana:
+ * solo numeri finiti, mai con valori mancanti.
+ */
+export function votoBasso(mediana, mio) {
+  if (mediana === null || mediana === undefined || mio === null || mio === undefined) return false;
+  const ricevuta = Number(mediana);
+  const dato = Number(mio);
+  if (!Number.isFinite(ricevuta) || !Number.isFinite(dato)) return false;
+  return ricevuta - dato >= 8;
+}
+
+/**
  * Stesso doppio valore ma come nodi: la mediana resta com'è,
  * il "/ mio" va in uno span leggero da stilizzare a parte.
  */
@@ -336,6 +348,11 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
     attrs: { role: "status" },
     text: "A sinistra il voto mediana, a destra il voto che hai assegnato (— se non lo hai assegnato).",
   });
+  const notaRossi = el("p", {
+    className: "nota nota-rossi",
+    text: "Voti in rosso: sei stato troppo severo. Se sono tanti nella stessa colonna, rileggi cosa valuta quell'attributo e correggi i tuoi voti.",
+  });
+  const legenda = el("div", { children: [istruzione, notaRossi] });
 
   // Legenda dell'overall con il tasto "i": resta visibile anche agli ospiti.
   // Con il popup aperto la pagina sotto non scorre (classe su html e body).
@@ -419,18 +436,23 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
       ? `Overall ricevuto ${overallUp}, il mio ${mioUp === null ? "non assegnato" : mioUp}`
       : `Overall ricevuto ${overallUp}`;
 
+    // Solo chi vota vede il confronto: il mio voto di almeno
+    // 8 punti sotto la mediana colora di rosso la cella.
+    const basso = (mediana, mioVoto) => collegato && !propria && votoBasso(mediana, mioVoto);
     const celle = colonne.map((colonna) => {
       if (colonna.id === "nome") return el("th", { attrs: { scope: "row" }, children: [bandierina, nome] });
       if (colonna.id === "ruolo") return el("td", { children: [el("span", { className: "pill", text: giocatore.role })] });
       if (colonna.id === "overall") {
         return el("td", {
-          className: "tabella-numero tabella-doppio",
+          className: basso(giocatore.overallUp, mioUp) ? "tabella-numero tabella-doppio tabella-basso" : "tabella-numero tabella-doppio",
           children: [el("span", { className: "overall-pill", children: nodoCella(overallUp, mioUp, collegato, propria) })],
           attrs: { "aria-label": etichettaOverall },
         });
       }
       return el("td", {
-        className: "tabella-numero tabella-doppio",
+        className: basso(giocatore[colonna.chiave], mioDi(colonna.chiave))
+          ? "tabella-numero tabella-doppio tabella-basso"
+          : "tabella-numero tabella-doppio",
         children: nodoCella(testoMediana(giocatore[colonna.chiave]), mioDi(colonna.chiave), collegato, propria),
       });
     });
@@ -501,7 +523,7 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
       { portieri: memoriaPortieri.ordinamento, movimento: memoriaMovimento.ordinamento },
     );
 
-    istruzione.hidden = !collegato;
+    legenda.hidden = !collegato;
     clear(contenitore);
 
     if (tabelle.nessuna) {
@@ -552,7 +574,7 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
   }
   root.append(filtri);
   root.append(notaOverall);
-  root.append(istruzione);
+  root.append(legenda);
   root.append(contenitore);
   disegna();
 }

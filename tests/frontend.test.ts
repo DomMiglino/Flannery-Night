@@ -32,7 +32,7 @@ import { etichetteGol, formatoPartita, guidinhaLinea, matchHeadline, sortTeamPla
 import { ApiError, nonAutorizzato } from "../public/js/api.js";
 import { separaMvp } from "../public/js/ui.js";
 import { fasciaOverall, hrefPremi, mostraNuovaStagione, mostraTastoPremi, soloStagioneAttiva, suggerisciNomeStagione, testoRendimento, troncaNome } from "../public/js/views/classifica.js";
-import { testoDoppio, testoCella, colonnePortieri, colonneMovimento, INIZIALE_PORTIERI, INIZIALE_MOVIMENTO, tabelleGiocatori } from "../public/js/views/giocatori.js";
+import { testoDoppio, testoCella, votoBasso, colonnePortieri, colonneMovimento, INIZIALE_PORTIERI, INIZIALE_MOVIMENTO, tabelleGiocatori } from "../public/js/views/giocatori.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
 import { etichettaAzioneRegistro, formatoDettaglioRegistro } from "../public/js/views/registro.js";
 import { formatoOra, validaDatiGiocatore } from "../public/js/views/editor_giocatore.js";
@@ -523,6 +523,16 @@ describe("due tabelle dei giocatori", () => {
   it("con una colonna attiva si ordina su quella colonna", () => {
     const tabelle = tabelleGiocatori(ROSTER, {}, { portieri: { id: "name", chiave: "name", direzione: "desc" } } as any);
     expect(tabelle.portieri.map((g: any) => g.id)).toEqual(["p-basso", "p-pari", "p-null", "p-alto"]);
+  });
+
+  it("voto basso: il mio di almeno 8 punti sotto la mediana", () => {
+    expect(votoBasso(80, 72)).toBe(true);
+    expect(votoBasso(80, 70)).toBe(true);
+    expect(votoBasso(80, 73)).toBe(false);
+    expect(votoBasso(80, 90)).toBe(false);
+    expect(votoBasso(null, 70)).toBe(false);
+    expect(votoBasso(80, null)).toBe(false);
+    expect(votoBasso(undefined, undefined)).toBe(false);
   });
 
   it("cella numerica: senza accesso solo il valore, con accesso mediana / mio", () => {
