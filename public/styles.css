@@ -1156,6 +1156,30 @@ body.popup-aperto {
   max-width: 280px;
 }
 
+/* Miniatura dopo il nome in classifica: resta dentro l'altezza
+   della riga che c'è già, con pochissimo respiro sopra e sotto. */
+.tabella-stemma {
+  display: inline-block;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  margin: -10px 0 -10px 6px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+/* Contenuto della prima cella: nome a sinistra, stemma a destra
+   con la stessa aria che resta sopra e sotto l'immagine. */
+.tabella-nome-cella {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.tabella-nome-cella .tabella-stemma {
+  margin: -10px 0 -10px auto;
+}
+
 /* ---------- statistiche ---------- */
 
 .griglia {

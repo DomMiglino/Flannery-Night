@@ -110,13 +110,17 @@ describe("campo stemma via API", () => {
     expect(Object.keys(res.body).sort()).toEqual(["id", "isAdmin", "name", "role"]);
   });
 
-  it("elenco /api/players e classifica senza stemma", async () => {
+  it("elenco /api/players senza stemma, classifica con stemma", async () => {
     const elenco = await s.call("/api/players");
     expect(elenco.status).toBe(200);
     for (const g of elenco.body.players) expect("stemma" in g).toBe(false);
     const classifica = await s.call("/api/ranking");
     expect(classifica.status).toBe(200);
-    for (const r of classifica.body.rows) expect("stemma" in r).toBe(false);
+    expect(classifica.body.rows.length).toBeGreaterThan(0);
+    for (const r of classifica.body.rows) {
+      expect("stemma" in r).toBe(true);
+      expect(r.stemma === null || typeof r.stemma === "string").toBe(true);
+    }
   });
 });
 

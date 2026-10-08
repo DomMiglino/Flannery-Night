@@ -57,6 +57,7 @@ export async function ranking(env: Env, seasonParam: string | null): Promise<Res
       name: r.name,
       role: r.role,
       flag: r.flag,
+      stemma: stemmaPer(r.playerId),
       played: r.played,
       V: r.V,
       P: r.P,

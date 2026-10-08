@@ -310,6 +310,14 @@ export async function renderClassifica(root, ctx) {
         text: troncaNome(riga.name),
       });
       linkInterno(nome, ctx.navigate);
+      let miniatura = null;
+      if (typeof riga.stemma === "string" && riga.stemma !== "") {
+        miniatura = el("img", {
+          className: "tabella-stemma",
+          attrs: { src: "/stemmi/" + encodeURIComponent(riga.stemma), alt: "", width: "64", height: "64", decoding: "async" },
+        });
+        miniatura.addEventListener("error", () => miniatura.remove());
+      }
       const posizione = posizioneDi.get(riga.id) ?? 0;
       corpo.append(
         el("tr", {
@@ -326,12 +334,18 @@ export async function renderClassifica(root, ctx) {
               attrs: { scope: "row" },
               children: [
                 el("span", {
-                  className: "posizione",
-                  text: String(posizione),
-                  attrs: { "aria-hidden": "true" },
+                  className: "tabella-nome-cella",
+                  children: [
+                    el("span", {
+                      className: "posizione",
+                      text: String(posizione),
+                      attrs: { "aria-hidden": "true" },
+                    }),
+                    bandierina,
+                    nome,
+                    miniatura,
+                  ],
                 }),
-                bandierina,
-                nome,
               ],
             }),
             cellaNumero(formatNumber(riga.powerScore, 1), false, true),
