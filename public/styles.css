@@ -1213,21 +1213,21 @@ body.popup-aperto {
 /* ---------- votazione ---------- */
 
 .votazione {
-  padding: 12px;
+  padding: 8px;
   background: var(--superficie);
   border: 1px solid var(--bordo);
   border-radius: var(--raggio);
 }
 
-/* Rettangolo compatto per ogni attributo: sigla in alto,
-   riferimenti al centro, controlli sotto. */
+/* Riquadro per ogni attributo: testata con nome e tasti,
+   descrizione sotto, riferimenti in fondo quando ci sono. */
 .voto-riga {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  padding: 10px;
-  margin-bottom: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
   border: 1px solid var(--bordo);
   border-radius: 10px;
   background: var(--superficie);
@@ -1237,11 +1237,33 @@ body.popup-aperto {
   margin-bottom: 0;
 }
 
-.voto-nome {
-  font-size: 0.8rem;
+/* Testata: a sinistra sigla e nome, a destra i tasti.
+   Il nome può andare a capo, i tasti restano sulla riga. */
+.voto-testa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.voto-titolo {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.voto-sigla {
   font-weight: 700;
+}
+
+.voto-descrizione {
+  margin: 0;
   color: var(--testo-2);
-  letter-spacing: 0.03em;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 /* Riga dei riferimenti: voci affiancate che vanno a capo se serve. */
@@ -1252,9 +1274,8 @@ body.popup-aperto {
   min-width: 0;
 }
 
-/* Voce singola: etichetta breve, nome intero e punteggio intero.
-   Testo scuro su fondo chiaro in entrambi i temi, l'etichetta resta
-   il segno principale anche senza colore. */
+/* Voce singola: freccia, nome intero e punteggio intero.
+   La forma della freccia resta il segno principale anche senza colore. */
 .voto-riferimento {
   display: inline-flex;
   align-items: center;
@@ -1277,6 +1298,7 @@ body.popup-aperto {
 
 .voto-controlli {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
 }

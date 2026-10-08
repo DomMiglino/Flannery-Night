@@ -162,26 +162,29 @@ describe("scelta dei riferimenti da mediane note", () => {
 });
 
 describe("voci del browser dai riferimenti", () => {
-  it("tre voci con etichette brevi", () => {
+  it("tre voci con simbolo, testo per chi non vede, nome e punteggio", () => {
     const voci = vociRiferimento([
       { tipo: "basso", id: "a", nome: "Salvio", valore: 62 },
       { tipo: "medio", id: "b", nome: "Bruno", valore: 70 },
       { tipo: "alto", id: "c", nome: "Carlo", valore: 85 },
     ] as any);
-    expect(voci.map((v: any) => v.etichetta)).toEqual(["Più basso", "Medio", "Più alto"]);
+    expect(voci.map((v: any) => v.simbolo)).toEqual(["↓", "→", "↑"]);
+    expect(voci.map((v: any) => v.sr)).toEqual(["più basso", "medio", "più alto"]);
     expect(voci.map((v: any) => v.nome)).toEqual(["Salvio", "Bruno", "Carlo"]);
     expect(voci.map((v: any) => v.punteggio)).toEqual([62, 70, 85]);
   });
 
-  it("due voci, una voce unica senza etichetta, vuoto senza voci", () => {
+  it("due voci, una voce unica senza simbolo, vuoto senza voci", () => {
     const due = vociRiferimento([
       { tipo: "basso", id: "a", nome: "Anna", valore: 60 },
       { tipo: "alto", id: "b", nome: "Zeno", valore: 80 },
     ] as any);
-    expect(due.map((v: any) => v.etichetta)).toEqual(["Più basso", "Più alto"]);
+    expect(due.map((v: any) => v.simbolo)).toEqual(["↓", "↑"]);
+    expect(due.map((v: any) => v.sr)).toEqual(["più basso", "più alto"]);
     const unico = vociRiferimento([{ tipo: "unico", id: "a", nome: "Salvio Rossi", valore: 70 }] as any);
     expect(unico).toHaveLength(1);
-    expect(unico[0].etichetta).toBe("");
+    expect(unico[0].simbolo).toBe("");
+    expect(unico[0].sr).toBe("");
     expect(unico[0].nome).toBe("Salvio Rossi");
     expect(vociRiferimento([])).toEqual([]);
   });
@@ -213,6 +216,23 @@ describe("guardie su sorgente e stile", () => {
     const css = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
     expect(css).toMatch(/\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/);
     expect(css).not.toContain("voto-mediana");
+  });
+
+  it("nel blocco di voto restano solo freccia, nome e punteggio", () => {
+    const scheda = readFileSync(new URL("../public/js/views/scheda.js", import.meta.url), "utf8");
+    const pulita = senzaCommenti(scheda);
+    const inizio = pulita.indexOf("function renderVotazione");
+    expect(inizio).toBeGreaterThan(-1);
+    const blocco = pulita.slice(inizio);
+    expect(blocco).not.toContain("Più basso");
+    expect(blocco).not.toContain("Più alto");
+    expect(blocco).not.toContain("Medio");
+    expect(blocco).toContain("solo-lettori");
+    expect(blocco).toContain("aria-hidden");
+    expect(blocco).toContain("title");
+    const ratings = readFileSync(new URL("../public/js/ratings.js", import.meta.url), "utf8");
+    expect(ratings).toContain("più basso");
+    expect(ratings).toContain("più alto");
   });
 });
 

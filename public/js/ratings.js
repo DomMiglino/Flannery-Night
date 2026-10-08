@@ -35,24 +35,61 @@ export const NOMI_BASE = ["VEL", "TIR", "PASS", "DRI", "DIF", "FIS"];
 export const NOMI_PORTIERE = ["TUF", "PRE", "RIN", "RIF", "REA", "PIA"];
 
 /**
- * Significati estesi dal glossario del vecchio sito (public-v2.js nel
- * branch main): Velocità/Tuffo, Tiro/Presa, Passaggio/Rinvio,
- * Riflessi, Difesa/Reattività, Fisico/Piazzamento.
+ * Nomi interi per sigla. Coppie base/portiere per posizione:
+ * 0 VEL/TUF, 1 TIR/PRE, 2 PASS/RIN, 3 DRI/RIF, 4 DIF/REA, 5 FIS/PIA.
  */
 export const SIGNIFICATI = {
   VEL: "Velocità",
   TUF: "Tuffo",
   TIR: "Tiro",
   PRE: "Presa",
-  PASS: "Passaggio",
+  PASS: "Passaggi",
   RIN: "Rinvio",
-  DRI: "DRI",
+  DRI: "Dribbling",
   RIF: "Riflessi",
   DIF: "Difesa",
-  REA: "Reattività",
+  REA: "Reazione",
   FIS: "Fisico",
   PIA: "Piazzamento",
 };
+
+/**
+ * Frasi brevi per chi vota, nell'ordine degli attributi 0..5.
+ * Gruppo movimento: VEL, TIR, PASS, DRI, DIF, FIS.
+ */
+export const DESCRIZIONI_MOVIMENTO = [
+  "Rapidità di scatto e di corsa, con e senza palla: partire per primo, rimontare un avversario, coprire il campo.",
+  "Forza, precisione e freddezza nella conclusione verso la porta, da vicino e da lontano.",
+  "Precisione e visione di gioco nel servire i compagni, sul corto e sul lungo, scegliendo il tempo giusto.",
+  "Abilità nel saltare l'avversario e nel tenere la palla stretta: controllo, finte, cambi di direzione.",
+  "Capacità di fermare gli avversari: anticipo, posizione, contrasti e chiusura degli spazi.",
+  "Forza, resistenza ed equilibrio: reggere i contrasti e mantenere il ritmo fino all'ultimo minuto.",
+];
+
+/**
+ * Frasi brevi per chi vota, nell'ordine degli attributi 0..5.
+ * Gruppo portieri: TUF, PRE, RIN, RIF, REA, PIA.
+ */
+export const DESCRIZIONI_PORTIERE = [
+  "Capacità di lanciarsi a terra o in volo sui palloni lontani, con tempismo e sicurezza.",
+  "Sicurezza nel bloccare il pallone senza farlo schizzare via, anche sui tiri forti e sui cross.",
+  "Qualità della ripartenza: lanci con le mani e con i piedi, precisi e verso il compagno giusto.",
+  "Prontezza fisica sui tiri ravvicinati e sulle deviazioni, dove non c'è tempo per pensare.",
+  "Rapidità di decisione e di mossa quando la situazione cambia: uscite, uno contro uno, rimpalli.",
+  "Stare nel posto giusto al momento giusto: chiudere gli angoli, guidare la difesa.",
+];
+
+/**
+ * Nomi e frasi per un ruolo: [{chiave, sigla, nome, descrizione}].
+ * Le sigle vengono da etichettePerRuolo, qui si aggiunge solo il testo.
+ * Gruppo portiere se il ruolo è P, movimento negli altri casi.
+ * @param {string} role
+ */
+export function dettagliPerRuolo(role) {
+  const base = etichettePerRuolo(role);
+  const testi = role === "P" ? DESCRIZIONI_PORTIERE : DESCRIZIONI_MOVIMENTO;
+  return base.map((voce, i) => ({ chiave: voce.chiave, sigla: voce.sigla, nome: voce.significato, descrizione: testi[i] }));
+}
 
 /**
  * Le sei etichette per un ruolo: [{chiave, sigla, significato}].
@@ -163,8 +200,8 @@ export function valoriIniziali(primo, secondo) {
 
 /**
  * Voci da mostrare per i riferimenti di un attributo.
- * Ogni voce ha etichetta breve, nome intero e punteggio intero.
- * "unico" non ha etichetta di posizione, solo il nome.
+ * Ogni voce ha simbolo, testo per chi non vede il simbolo,
+ * nome intero e punteggio intero. "unico" non ha simbolo.
  * @param {Array<{tipo: string, id: string, nome: string, valore: number}>} riferimenti
  */
 export function vociRiferimento(riferimenti) {
@@ -174,13 +211,22 @@ export function vociRiferimento(riferimenti) {
     if (!r || typeof r.nome !== "string") continue;
     const punteggio = Number(r.valore);
     if (!Number.isFinite(punteggio)) continue;
-    let etichetta = "";
-    if (r.tipo === "basso") etichetta = "Più basso";
-    else if (r.tipo === "medio") etichetta = "Medio";
-    else if (r.tipo === "alto") etichetta = "Più alto";
-    else if (r.tipo === "unico") etichetta = "";
-    else continue;
-    voci.push({ etichetta, nome: r.nome, punteggio, tipo: r.tipo, id: r.id });
+    let simbolo = "";
+    let sr = "";
+    if (r.tipo === "basso") {
+      simbolo = "↓";
+      sr = "più basso";
+    } else if (r.tipo === "medio") {
+      simbolo = "→";
+      sr = "medio";
+    } else if (r.tipo === "alto") {
+      simbolo = "↑";
+      sr = "più alto";
+    } else if (r.tipo === "unico") {
+      simbolo = "";
+      sr = "";
+    } else continue;
+    voci.push({ simbolo, sr, nome: r.nome, punteggio, tipo: r.tipo, id: r.id });
   }
   return voci;
 }

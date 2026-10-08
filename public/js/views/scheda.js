@@ -4,7 +4,7 @@
 import { ApiError, api, nonAutorizzato } from "../api.js";
 import { clear, el } from "../dom.js";
 import { clamp, formatNumber, formatVotes } from "../format.js";
-import { ATTRIBUTI, etichettePerRuolo, valoriDaVoto, valoriIniziali, vociRiferimento, votiPerTarget } from "../ratings.js";
+import { ATTRIBUTI, dettagliPerRuolo, etichettePerRuolo, valoriDaVoto, valoriIniziali, vociRiferimento, votiPerTarget } from "../ratings.js";
 import { cella, errore, esiti, rendimento, riepilogo, scheletro, titolo } from "../ui.js";
 
 export async function renderScheda(root, ctx, playerId, conferma = null) {
@@ -151,6 +151,8 @@ function renderVotazione(scheda, riferimenti, mioVoto, ctx, conferma) {
   const valori = valoriIniziali(valoriDaVoto(mioVoto));
   // Un solo nome per attributo: variante da portiere per il ruolo P.
   const etichette = etichettePerRuolo(scheda.role);
+  const dettagli = dettagliPerRuolo(scheda.role);
+  const perChiave = new Map(dettagli.map((d) => [d.chiave, d]));
 
   const messaggio = el("p", { className: "nota", attrs: { role: "status" } });
   messaggio.textContent =
@@ -161,6 +163,7 @@ function renderVotazione(scheda, riferimenti, mioVoto, ctx, conferma) {
   const campi = {};
 
   for (const { chiave, sigla, significato } of etichette) {
+    const info = perChiave.get(chiave) || { nome: significato, descrizione: "" };
     const campo = el("input", {
       className: "voto-campo",
       attrs: {
@@ -170,7 +173,7 @@ function renderVotazione(scheda, riferimenti, mioVoto, ctx, conferma) {
         max: "99",
         step: "1",
         value: String(valori[chiave]),
-        "aria-label": `Il tuo voto per ${significato}`,
+        "aria-label": `Il tuo voto per ${info.nome}`,
       },
       on: {
         input: (evento) => {
@@ -196,39 +199,47 @@ function renderVotazione(scheda, riferimenti, mioVoto, ctx, conferma) {
     const indice = ATTRIBUTI.indexOf(chiave);
     const lista = Array.isArray(riferimenti) && Array.isArray(riferimenti[indice]) ? riferimenti[indice] : [];
     const voci = vociRiferimento(lista);
-    const figliRiga = [el("span", { className: "voto-nome", text: sigla, attrs: { title: significato } })];
+    const testa = el("div", {
+      className: "voto-testa",
+      children: [
+        el("span", {
+          className: "voto-titolo",
+          attrs: { title: info.nome },
+          children: [el("span", { className: "voto-sigla", text: sigla }), document.createTextNode(` ${info.nome}`)],
+        }),
+        el("span", {
+          className: "voto-controlli",
+          children: [
+            el("button", {
+              className: "voto-passo",
+              text: "−",
+              attrs: { type: "button", "aria-label": `Un punto in meno a ${info.nome}` },
+              on: { click: () => sposta(-1) },
+            }),
+            campo,
+            el("button", {
+              className: "voto-passo",
+              text: "+",
+              attrs: { type: "button", "aria-label": `Un punto in più a ${info.nome}` },
+              on: { click: () => sposta(1) },
+            }),
+          ],
+        }),
+      ],
+    });
+    const figliRiga = [testa, el("p", { className: "voto-descrizione", text: info.descrizione })];
     if (voci.length > 0) {
       const nodiVoci = voci.map((voce) => {
-        const testo = voce.etichetta ? `${voce.etichetta}: ${voce.nome} ${voce.punteggio}` : `${voce.nome} ${voce.punteggio}`;
+        const visibile = `${voce.nome} ${voce.punteggio}`;
+        const titolo = voce.sr ? `${voce.sr}: ${visibile}` : visibile;
         const dentro = [];
-        if (voce.tipo === "basso") dentro.push(el("span", { className: "voto-freccia", text: "↓", attrs: { "aria-hidden": "true" } }));
-        else if (voce.tipo === "alto") dentro.push(el("span", { className: "voto-freccia", text: "↑", attrs: { "aria-hidden": "true" } }));
-        else if (voce.tipo === "medio") dentro.push(el("span", { className: "voto-freccia", text: "→", attrs: { "aria-hidden": "true" } }));
-        dentro.push(el("span", { text: testo }));
-        return el("span", { className: "voto-riferimento", children: dentro });
+        if (voce.simbolo) dentro.push(el("span", { className: "voto-freccia", text: voce.simbolo, attrs: { "aria-hidden": "true" } }));
+        if (voce.sr) dentro.push(el("span", { className: "solo-lettori", text: voce.sr }));
+        dentro.push(el("span", { text: visibile }));
+        return el("span", { className: "voto-riferimento", attrs: { title: titolo }, children: dentro });
       });
       figliRiga.push(el("div", { className: "voto-riferimenti", children: nodiVoci }));
     }
-    figliRiga.push(
-      el("span", {
-        className: "voto-controlli",
-        children: [
-          el("button", {
-            className: "voto-passo",
-            text: "−",
-            attrs: { type: "button", "aria-label": `Un punto in meno a ${significato}` },
-            on: { click: () => sposta(-1) },
-          }),
-          campo,
-          el("button", {
-            className: "voto-passo",
-            text: "+",
-            attrs: { type: "button", "aria-label": `Un punto in più a ${significato}` },
-            on: { click: () => sposta(1) },
-          }),
-        ],
-      }),
-    );
 
     righe.append(el("div", { className: "voto-riga", children: figliRiga }));
   }

@@ -17,7 +17,7 @@ import {
   valuesInOrder,
 } from "../public/js/hexagon.js";
 import { activeNav, homePath, navItems, needsSeason, normalizePath, resolveRoute, seasonFromSearch, withSeason } from "../public/js/routes.js";
-import { PESI, etichettePerRuolo, myOverall, valoriDaVoto, valoriIniziali, median, vociRiferimento, votiPerTarget } from "../public/js/ratings.js";
+import { DESCRIZIONI_MOVIMENTO, DESCRIZIONI_PORTIERE, PESI, dettagliPerRuolo, etichettePerRuolo, myOverall, valoriDaVoto, valoriIniziali, median, vociRiferimento, votiPerTarget } from "../public/js/ratings.js";
 import { clamp, flagUrl, formatDate, formatNumber, formatOverall, formatOverallUp, formatShortDate, formatVotes, formaLabel, stepValue } from "../public/js/format.js";
 import { filterPlayers, rolesOf, separaPortieri, withAppearances } from "../public/js/lists.js";
 import {
@@ -270,18 +270,20 @@ describe("il mio overall", () => {
     expect(due.tirPre).toBe(44);
   });
 
-  it("le voci dei riferimenti hanno etichetta, nome intero e punteggio intero", () => {
+  it("le voci dei riferimenti hanno simbolo, testo per chi non vede, nome intero e punteggio intero", () => {
     const tre = vociRiferimento([
       { tipo: "basso", id: "a", nome: "Salvio", valore: 62 },
       { tipo: "medio", id: "b", nome: "Bruno", valore: 70 },
       { tipo: "alto", id: "c", nome: "Carlo", valore: 85 },
     ] as any);
-    expect(tre.map((v: any) => v.etichetta)).toEqual(["Più basso", "Medio", "Più alto"]);
+    expect(tre.map((v: any) => v.simbolo)).toEqual(["↓", "→", "↑"]);
+    expect(tre.map((v: any) => v.sr)).toEqual(["più basso", "medio", "più alto"]);
     expect(tre.map((v: any) => v.nome)).toEqual(["Salvio", "Bruno", "Carlo"]);
     expect(tre.map((v: any) => v.punteggio)).toEqual([62, 70, 85]);
     const unico = vociRiferimento([{ tipo: "unico", id: "a", nome: "Salvio Rossi", valore: 70 }] as any);
     expect(unico).toHaveLength(1);
-    expect(unico[0].etichetta).toBe("");
+    expect(unico[0].simbolo).toBe("");
+    expect(unico[0].sr).toBe("");
     expect(unico[0].nome).toBe("Salvio Rossi");
     expect(vociRiferimento([])).toEqual([]);
     expect(vociRiferimento(null as any)).toEqual([]);
@@ -835,12 +837,13 @@ describe("etichette per ruolo", () => {
   });
 
   it("ogni sigla ha il suo significato dal glossario, mai inventato", () => {
+    const nomeDri = "Dri" + "bbling";
     const significati = Object.fromEntries(etichettePerRuolo("CC").map((e) => [e.sigla, e.significato]));
     expect(significati).toEqual({
       VEL: "Velocità",
       TIR: "Tiro",
-      PASS: "Passaggio",
-      DRI: "DRI",
+      PASS: "Passaggi",
+      DRI: nomeDri,
       DIF: "Difesa",
       FIS: "Fisico",
     });
@@ -850,7 +853,7 @@ describe("etichette per ruolo", () => {
       PRE: "Presa",
       RIN: "Rinvio",
       RIF: "Riflessi",
-      REA: "Reattività",
+      REA: "Reazione",
       PIA: "Piazzamento",
     });
   });
@@ -1076,5 +1079,91 @@ describe("collegamento Instagram", () => {
     expect(sorgente).toContain("https://www.instagram.com/flannerypub/?hl=it");
     expect(sorgente).toContain("noopener noreferrer");
     expect(sorgente).toContain("_blank");
+  });
+});
+
+describe("nomi e descrizioni per chi vota", () => {
+  it("sei voci per il gruppo movimento e sei per i portieri, nome e frase non vuoti", () => {
+    expect(DESCRIZIONI_MOVIMENTO).toHaveLength(6);
+    expect(DESCRIZIONI_PORTIERE).toHaveLength(6);
+    for (const gruppo of [dettagliPerRuolo("CC"), dettagliPerRuolo("P")]) {
+      expect(gruppo).toHaveLength(6);
+      for (const voce of gruppo) {
+        expect(voce.nome.trim().length).toBeGreaterThan(0);
+        expect(voce.descrizione.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("i nomi sono quelli attesi nell'ordine", () => {
+    const nomeDri = "Dri" + "bbling";
+    expect(dettagliPerRuolo("CC").map((v) => v.nome)).toEqual([
+      "Velocità",
+      "Tiro",
+      "Passaggi",
+      nomeDri,
+      "Difesa",
+      "Fisico",
+    ]);
+    expect(dettagliPerRuolo("P").map((v) => v.nome)).toEqual([
+      "Tuffo",
+      "Presa",
+      "Rinvio",
+      "Riflessi",
+      "Reazione",
+      "Piazzamento",
+    ]);
+  });
+
+  it("ogni frase è lunga al massimo 130 caratteri", () => {
+    for (const frase of [...DESCRIZIONI_MOVIMENTO, ...DESCRIZIONI_PORTIERE]) {
+      expect(frase.length).toBeLessThanOrEqual(130);
+    }
+  });
+
+  it("la sigla resta quella di etichettePerRuolo per P e per un ruolo di movimento", () => {
+    for (const ruolo of ["CC", "P"]) {
+      const attese = etichettePerRuolo(ruolo).map((e) => e.sigla);
+      expect(dettagliPerRuolo(ruolo).map((v) => v.sigla)).toEqual(attese);
+    }
+    expect(dettagliPerRuolo("CC").map((v) => v.sigla)).toEqual(["VEL", "TIR", "PASS", "DRI", "DIF", "FIS"]);
+    expect(dettagliPerRuolo("P").map((v) => v.sigla)).toEqual(["TUF", "PRE", "RIN", "RIF", "REA", "PIA"]);
+  });
+});
+
+describe("guardie sul modulo delle descrizioni", () => {
+  it("parole non volute assenti, una sola occorrenza del nome concesso", () => {
+    const sorgente = readFileSync(new URL("../public/js/ratings.js", import.meta.url), "utf8").toLowerCase();
+    const nomeConcesso = "dri" + "bbling";
+    const vietati = [
+      "leg" + "acy",
+      "ass" + "ist",
+      "tiri in " + "porta",
+      "passaggi " + "chiave",
+      "recu" + "peri",
+      "du" + "elli",
+      "par" + "ate",
+      "advanced" + "tracked",
+      "not" + "es",
+      "crit" + "ica",
+      "supa" + "base",
+      "apps " + "script",
+      "jso" + "np",
+      "admin" + "bridge",
+    ];
+    for (const parola of vietati) {
+      expect(sorgente).not.toContain(parola);
+    }
+    const conta = sorgente.split(nomeConcesso).length - 1;
+    expect(conta).toBe(1);
+  });
+
+  it("[hidden] resta e il testo solo per chi non vede non usa display none", () => {
+    const css = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/);
+    const inizio = css.indexOf(".solo-lettori");
+    expect(inizio).toBeGreaterThan(-1);
+    const blocco = css.slice(inizio, css.indexOf("}", inizio));
+    expect(blocco).not.toMatch(/display\s*:\s*none/);
   });
 });
