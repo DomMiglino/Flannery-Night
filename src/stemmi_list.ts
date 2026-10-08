@@ -1,6 +1,7 @@
 // Generato automaticamente da scripts/genera-bandiere.mjs - non modificare a mano
 
 export const STEMMI: string[] = [
+  "angelo.png",
   "antonio.png",
   "carletto.png",
   "fabio.png",
@@ -14,5 +15,6 @@ export const STEMMI: string[] = [
   "nicolas.png",
   "pasquale.png",
   "peppe.png",
+  "salvio.png",
   "vito.png"
 ];

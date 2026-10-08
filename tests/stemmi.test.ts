@@ -6,6 +6,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { STEMMI } from "../src/stemmi_list";
 import { stemmaPer } from "../src/stemmi";
+import { playerDetail } from "../src/routes/routes_data";
+import type { Env } from "../src/env";
 import { scegliStemmi, testoStemmi } from "../scripts/genera-bandiere.mjs";
 import { infoStemma } from "../public/js/ratings.js";
 import { PIN, sessionCookie, startServer, type TestServer } from "./helpers/server";
@@ -92,15 +94,20 @@ describe("campo stemma via API", () => {
     expect(res.body.role).toBe("CC");
   });
 
-  it("senza file lo stemma è null, con file è il nome", async () => {
-    const senza = await s.call("/api/players/antonio");
-    expect(senza.body.stemma).toBeNull();
+  it("con elenco iniettato: senza file null, con file il nome", async () => {
     await s.db
-      .prepare("INSERT INTO players (id, name, role, flag, active, can_login, is_admin) VALUES ('fabio', 'Fake Fabio', 'CC', NULL, 1, 0, 0)")
+      .prepare("INSERT INTO players (id, name, role, flag, active, can_login, is_admin) VALUES ('provastemma', 'Prova Stemma', 'CC', NULL, 1, 0, 0)")
       .run();
-    const con = await s.call("/api/players/fabio");
-    expect(con.status).toBe(200);
-    expect(con.body.stemma).toBe("fabio.png");
+    const env = { DB: s.db } as unknown as Env;
+    const con = await (await playerDetail(env, "provastemma", null, false, ["provastemma.png"])).json<any>();
+    expect(con.stemma).toBe("provastemma.png");
+    expect(con.id).toBe("provastemma");
+    expect(con.name).toBe("Prova Stemma");
+    expect(con.role).toBe("CC");
+    const senza = await (await playerDetail(env, "provastemma", null, false, ["altro.png"])).json<any>();
+    expect(senza.stemma).toBeNull();
+    const vuoto = await (await playerDetail(env, "provastemma", null, false, [])).json<any>();
+    expect(vuoto.stemma).toBeNull();
   });
 
   it("GET /api/me resta con i soli campi id, name, role, isAdmin", async () => {

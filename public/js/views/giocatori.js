@@ -61,6 +61,16 @@ export function testoCella(sinistra, destro, collegato, propria = false) {
   return testoDoppio(sinistra, destro);
 }
 
+/**
+ * Stesso doppio valore ma come nodi: la mediana resta com'è,
+ * il "/ mio" va in uno span leggero da stilizzare a parte.
+ */
+export function nodoCella(sinistra, destro, collegato, propria = false) {
+  if (!collegato || propria) return String(sinistra);
+  const mio = destro === null || destro === undefined ? "—" : String(destro);
+  return [el("span", { text: String(sinistra) }), el("span", { className: "tabella-mio", text: ` / ${mio}` })];
+}
+
 /** Ruoli in ordine fisso: prima i portieri, poi la difesa e l'attacco. */
 const ORDINE_RUOLI = ["P", "DC", "DL", "CC", "CL", "PC"];
 
@@ -415,13 +425,13 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
       if (colonna.id === "overall") {
         return el("td", {
           className: "tabella-numero tabella-doppio",
-          children: [el("span", { className: "overall-pill", text: testoCella(overallUp, mioUp, collegato, propria) })],
+          children: [el("span", { className: "overall-pill", children: nodoCella(overallUp, mioUp, collegato, propria) })],
           attrs: { "aria-label": etichettaOverall },
         });
       }
       return el("td", {
         className: "tabella-numero tabella-doppio",
-        text: testoCella(testoMediana(giocatore[colonna.chiave]), mioDi(colonna.chiave), collegato, propria),
+        children: nodoCella(testoMediana(giocatore[colonna.chiave]), mioDi(colonna.chiave), collegato, propria),
       });
     });
 

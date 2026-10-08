@@ -107,6 +107,7 @@ export async function playerDetail(
   id: string,
   seasonParam: string | null,
   isAuthed = false,
+  elencoStemmi?: readonly string[],
 ): Promise<Response> {
   const season = await resolveSeason(env, seasonParam);
   if (!season) return fail(404, MSG.notFound);
@@ -152,7 +153,7 @@ export async function playerDetail(
     name: player.name,
     role: player.role,
     flag: player.flag,
-    stemma: stemmaPer(player.id),
+    stemma: stemmaPer(player.id, elencoStemmi),
     votes: summary.voters,
     ...medianFields(summary),
     ...(isAuthed && riferimenti ? { riferimenti } : {}),

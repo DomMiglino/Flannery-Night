@@ -720,6 +720,13 @@ body.popup-aperto {
   white-space: nowrap;
 }
 
+/* Il mio voto dopo la mediana: più piccolo e leggero della mediana. */
+.tabella-mio {
+  font-size: 0.8em;
+  font-weight: 400;
+  color: var(--testo-2);
+}
+
 /* Nomi nell'accesso: solo il nome, intero e a capo, mai troncato. */
 .accesso-voce {
   display: block;
@@ -1156,8 +1163,8 @@ body.popup-aperto {
   max-width: 280px;
 }
 
-/* Miniatura dopo il nome in classifica: resta dentro l'altezza
-   della riga che c'è già, con pochissimo respiro sopra e sotto. */
+/* Miniatura in classifica: 64px con margini negativi, così
+   l'ingombro resta 44px come il nome e la riga non cresce. */
 .tabella-stemma {
   display: inline-block;
   width: 64px;
@@ -1168,8 +1175,8 @@ body.popup-aperto {
   vertical-align: middle;
 }
 
-/* Contenuto della prima cella: nome a sinistra, stemma a destra
-   con la stessa aria che resta sopra e sotto l'immagine. */
+/* Contenuto della prima cella: nome a sinistra, stemma
+   a destra attaccato al bordo. */
 .tabella-nome-cella {
   display: flex;
   align-items: center;
