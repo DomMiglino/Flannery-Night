@@ -230,3 +230,16 @@ export function vociRiferimento(riferimenti) {
   }
   return voci;
 }
+
+/**
+ * Stemma del giocatore, se l'API lo indica: {src, alt} oppure null.
+ * Il testo indica nome e ruolo, così resta chiaro anche senza scritta.
+ * @param {{name?: string, nome?: string, role?: string, ruolo?: string, stemma?: string|null}|null} giocatore
+ */
+export function infoStemma(giocatore) {
+  const file = giocatore ? giocatore.stemma : null;
+  if (typeof file !== "string" || file === "") return null;
+  const nome = giocatore.name ?? giocatore.nome ?? "";
+  const ruolo = giocatore.role ?? giocatore.ruolo ?? "";
+  return { src: "/stemmi/" + encodeURIComponent(file), alt: `Stemma di ${nome}, ruolo ${ruolo}` };
+}

@@ -72,6 +72,8 @@ export async function renderScheda(root, ctx, playerId, conferma = null) {
       nome: scheda.name,
       ruolo: scheda.role,
       flag: scheda.flag,
+      stemma: scheda.stemma ?? null,
+      variante: "scheda",
       mediane: mediana,
       mio: valoriDaVoto(mioVoto),
       overallUp: scheda.overallUp,

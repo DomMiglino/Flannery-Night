@@ -2,6 +2,7 @@
 
 import { clear, el, svg } from "./dom.js";
 import { flagUrl, formatOverallUp, formatVotes, formaClasse, formaLabel } from "./format.js";
+import { infoStemma } from "./ratings.js";
 import { ANELLI, ASSI, GEOMETRIA, labelPositions, polygonPoints, ringPoints, valuesInOrder } from "./hexagon.js";
 
 /** Titolo di sezione. */
@@ -178,9 +179,33 @@ export function esagono({ mediane, mio, overallUp = null, voti = 0, ruolo = "" }
 
 const ATTRIBUTI_CON_VALORI = ASSI.map((a) => a.chiave);
 
-/** Nome, ruolo, esagono e numero di voti: l'intestazione della scheda. */
-export function riepilogo({ nome, ruolo, flag, mediane, mio, overallUp, voti }) {
+/**
+ * Nome, ruolo o stemma, esagono e numero di voti: l'intestazione
+ * di Home e scheda. Con lo stemma l'immagine prende il posto della
+ * scritta del ruolo; se non carica torna la scritta.
+ */
+export function riepilogo({ nome, ruolo, flag, stemma = null, variante = "", mostraVoti = true, mediane, mio, overallUp, voti }) {
   const bandierina = bandiera(flag);
+  const marca = infoStemma({ name: nome, role: ruolo, stemma });
+  let rigaRuolo;
+  if (marca) {
+    const classe =
+      variante === "home"
+        ? "riassunto-stemma riassunto-stemma-home"
+        : variante === "scheda"
+          ? "riassunto-stemma riassunto-stemma-scheda"
+          : "riassunto-stemma";
+    const img = el("img", {
+      className: classe,
+      attrs: { src: marca.src, alt: marca.alt, width: "512", height: "512", decoding: "async" },
+    });
+    img.addEventListener("error", () => {
+      img.replaceWith(el("p", { className: "riassunto-ruolo", text: String(ruolo || "") }));
+    });
+    rigaRuolo = img;
+  } else {
+    rigaRuolo = el("p", { className: "riassunto-ruolo", text: String(ruolo || "") });
+  }
   const capezzale = el("div", {
     className: "riassunto",
     children: [
@@ -188,9 +213,9 @@ export function riepilogo({ nome, ruolo, flag, mediane, mio, overallUp, voti }) 
         className: "riassunto-nome",
         children: bandierina ? [bandierina, document.createTextNode(` ${nome}`)] : [document.createTextNode(String(nome))],
       }),
-      el("p", { className: "riassunto-ruolo", text: String(ruolo || "") }),
+      rigaRuolo,
       esagono({ mediane, mio, overallUp, voti, ruolo }),
-      voti > 0 ? nota(formatVotes(voti), "nota") : nota("Ancora nessun voto ricevuto", "nota"),
+      mostraVoti ? (voti > 0 ? nota(formatVotes(voti), "nota") : nota("Ancora nessun voto ricevuto", "nota")) : null,
     ],
   });
   return capezzale;

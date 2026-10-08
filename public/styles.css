@@ -1136,6 +1136,26 @@ body.popup-aperto {
   font-size: 0.9rem;
 }
 
+/* Stemma al posto del ruolo in Home e scheda: sotto il nome,
+   sopra l'esagono, centrato, senza uscire a 360 px. */
+.riassunto-stemma {
+  display: block;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  margin: 4px auto;
+}
+
+.riassunto-stemma-home {
+  width: 100%;
+  max-width: 240px;
+}
+
+.riassunto-stemma-scheda {
+  width: 100%;
+  max-width: 280px;
+}
+
 /* ---------- statistiche ---------- */
 
 .griglia {

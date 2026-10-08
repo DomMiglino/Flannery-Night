@@ -2,6 +2,7 @@
 // Escono solo mediane e conteggi: mai un voto singolo, mai salt o hash.
 
 import { buildReferences, mediaPerPartita, playerSeason, publishedSorted, puntiStagione, summarizeVotes, teamOutcomes, teamScores, type CalcMatch, type RatingSummary } from "../calc";
+import { stemmaPer } from "../stemmi";
 import type { Env } from "../env";
 import { fail, json, MSG } from "../http";
 import {
@@ -150,6 +151,7 @@ export async function playerDetail(
     name: player.name,
     role: player.role,
     flag: player.flag,
+    stemma: stemmaPer(player.id),
     votes: summary.voters,
     ...medianFields(summary),
     ...(isAuthed && riferimenti ? { riferimenti } : {}),
