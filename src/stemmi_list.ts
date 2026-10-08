@@ -4,5 +4,14 @@ export const STEMMI: string[] = [
   "antonio.png",
   "carletto.png",
   "fabio.png",
-  "mimmo.png"
+  "guido.png",
+  "id-muod960m-aadgpb.png",
+  "koke.png",
+  "lob.png",
+  "marco-del-flannery.png",
+  "mimmo.png",
+  "nicolas.png",
+  "pasquale.png",
+  "peppe.png",
+  "vito.png"
 ];
