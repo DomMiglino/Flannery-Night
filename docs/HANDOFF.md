@@ -108,7 +108,7 @@ Eliminare il voto di un giocatore a un altro: controllare con `SELECT * FROM vot
 
 Tabelle:
 
-- `players(id, name, role, flag, active, can_login, is_admin, created_at)`: `id` slug minuscolo (es. `salvio`), `name` unico senza distinzione di maiuscole, `role` in `P/DC/DL/CC/CL/PC`, `flag` = **nome del file con estensione** (es. `Costa Rica.png`). `active` esiste ma **non si usa nessuna logica su attivi/disattivi** [DECISO]: i nuovi giocatori nascono `active=1` e non ci sono interruttori.
+- `players(id, name, role, role2, flag, active, can_login, is_admin, created_at)`: `id` slug minuscolo (es. `salvio`), `name` unico senza distinzione di maiuscole, `role` in `P/DC/DL/CC/CL/PC`, `role2` secondo ruolo facoltativo in `DC/DL/CC/CL/PC` o `NULL` (mai per il portiere, mai `P`), `flag` = **nome del file con estensione** (es. `Costa Rica.png`). `active` esiste ma **non si usa nessuna logica su attivi/disattivi** [DECISO]: i nuovi giocatori nascono `active=1` e non ci sono interruttori.
 - `credentials(player_id, salt, pin_hash, pin_origin, hash_version, failed_attempts, locked_until, session_version, updated_at)`: `pin_origin` `''` = PIN mai creato, `'user'` = creato dall'utente.
 - `seasons(id, name, is_active, created_at)`
 - `matches(id, season_id, date, status, guidinha_player_id, guidinha_text, field_name, field_maps_url, created_at, published_at)`: **non esistono bozze** [DECISO]: `status` vale sempre `'published'`. `field_*` predisposti e non ancora usati (servono alla versione 2).

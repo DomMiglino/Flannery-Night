@@ -3,7 +3,13 @@
 ## Tabelle
 
 `seasons`, `players`, `credentials`, `matches`, `match_players`, `votes`,
-`audit_log`. Lo schema completo e i vincoli sono in `migrations/0001_init.sql`.
+`audit_log`. Lo schema completo e i vincoli sono in `migrations/0001_init.sql`
+e `migrations/0002_role2.sql`.
+
+`players.role2` e il secondo ruolo facoltativo (solo `DC/DL/CC/CL/PC`
+oppure `NULL`): mai per il portiere e mai `P`. Le regole incrociate
+(diverso dal ruolo principale, niente secondo ruolo al portiere) vivono
+nel codice, non nei vincoli.
 
 ## Trigger: regola obbligatoria
 

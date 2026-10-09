@@ -347,7 +347,7 @@ describe("giocatori per l'editor e registro", () => {
     expect(res.status).toBe(200);
     const ids = res.body.players.map((p: { id: string }) => p.id);
     expect(ids).toContain("fake-esterno");
-    expect(Object.keys(res.body.players[0]).sort()).toEqual(["canLogin", "flag", "id", "name", "role"]);
+    expect(Object.keys(res.body.players[0]).sort()).toEqual(["canLogin", "flag", "id", "name", "role", "role2"]);
     expect(res.text).not.toMatch(/pin_hash|"salt"|pinHash/);
   });
 

@@ -19,6 +19,26 @@ Il formato di partenza e 8 contro 8; cambiare formato non cancella
 i convocati. Con 1 portiere o 0 portieri ogni posto P mancante diventa
 un posto extra **CC** (anche nel 5 contro 5).
 
+## Secondo ruolo
+
+Ogni giocatore di movimento puo avere un secondo ruolo facoltativo
+(DC, DL, CC, CL, PC), scelto in creazione e modifica del giocatore.
+Il portiere non ha un secondo ruolo e non e un secondo ruolo.
+
+Quando presente, l'assegnazione usa la gravita effettiva: la migliore
+tra primario e secondario (`gravitaEffettiva` in `src/squadre.ts`).
+Chi gioca nel secondo ruolo ha gravita 0 (stessa priorita del ruolo
+esatto, quindi batte qualunque cambio ruolo); chi va altrove ma col
+secondario piu vicino paga comunque meno (per esempio DL con
+secondario CL nel posto CC: 1 invece di 2). L'overall resta sempre
+ricalcolato coi pesi del posto, come per ogni fuori ruolo: il secondo
+ruolo riduce solo la gravita, con impatto minore.
+
+Avvisi dedicati: chi gioca nel secondo ruolo esatto non conta come
+fuori ruolo e compare in `Nel secondo ruolo: Nome (RUOLO in POSTO)`;
+chi resta fuori ruolo con gravita attenuata compare in
+`Fuori ruolo: Nome (PRIMARIO/SECONDARIO in POSTO)`.
+
 ## Valore effettivo
 
 1. Mediane dei voti con le funzioni esistenti di `src/calc.ts`.
@@ -105,8 +125,9 @@ differenze e avvisi in piccolo, ritorno senza perdere la selezione.
 
 ## Rotte e permessi
 
-- `GET /api/admin/squadre/giocatori`: id, nome, ruolo e presenze nella
-  stagione attiva per la griglia, in ordine di presenze e nome.
+- `GET /api/admin/squadre/giocatori`: id, nome, ruolo, secondo ruolo e
+  presenze nella stagione attiva per la griglia, in ordine di presenze
+  e nome. La griglia mostra `RUOLO/SECONDO` quando presente.
 - `POST /api/admin/squadre/proposta`: riceve formato e id dei convocati,
   restituisce testo, squadre con numeri (con posto di ognuno), totali,
   differenze e avvisi.

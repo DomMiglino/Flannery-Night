@@ -441,7 +441,10 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
     const basso = (mediana, mioVoto) => collegato && !propria && votoBasso(mediana, mioVoto);
     const celle = colonne.map((colonna) => {
       if (colonna.id === "nome") return el("th", { attrs: { scope: "row" }, children: [bandierina, nome] });
-      if (colonna.id === "ruolo") return el("td", { children: [el("span", { className: "pill", text: giocatore.role })] });
+      if (colonna.id === "ruolo") {
+        const testoRuolo = giocatore.role2 ? `${giocatore.role}/${giocatore.role2}` : giocatore.role;
+        return el("td", { children: [el("span", { className: "pill", text: testoRuolo })] });
+      }
       if (colonna.id === "overall") {
         return el("td", {
           className: basso(giocatore.overallUp, mioUp) ? "tabella-numero tabella-doppio tabella-basso" : "tabella-numero tabella-doppio",

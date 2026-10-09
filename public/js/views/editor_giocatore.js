@@ -18,10 +18,34 @@ export const ETICHETTE_RUOLI = [
 
 const RUOLI_VALIDI = new Set(ETICHETTE_RUOLI.map((ruolo) => ruolo.value));
 
+// Secondo ruolo facoltativo: solo movimento. Il portiere non ha un
+// secondo ruolo e il portiere non è un secondo ruolo.
+export const ETICHETTE_RUOLI_SECONDI = [
+  { value: "DC", label: "DC · Difensore Centrale" },
+  { value: "DL", label: "DL · Difensore Laterale" },
+  { value: "CC", label: "CC · Centrocampista Centrale" },
+  { value: "CL", label: "CL · Centrocampista Laterale" },
+  { value: "PC", label: "PC · Punta Centrale" },
+];
+
+const RUOLI_SECONDI_VALIDI = new Set(ETICHETTE_RUOLI_SECONDI.map((ruolo) => ruolo.value));
+
+export function validaSecondoRuolo(role, role2) {
+  if (role2 === undefined || role2 === null || role2 === "") return null;
+  if (typeof role2 !== "string" || !RUOLI_SECONDI_VALIDI.has(role2)) {
+    return "Seleziona un secondo ruolo valido oppure nessuno.";
+  }
+  if (role === "P") return "Il portiere non ha un secondo ruolo.";
+  if (role2 === role) return "Il secondo ruolo deve essere diverso dal ruolo principale.";
+  return null;
+}
+
 export function validaDatiGiocatore(dati, bandiere, flagPrecedente) {
   const name = typeof dati.name === "string" ? dati.name.trim() : "";
   if (name.length < 1 || name.length > 40) return "Il nome deve contenere da 1 a 40 caratteri.";
   if (!RUOLI_VALIDI.has(dati.role)) return "Seleziona un ruolo valido.";
+  const erroreSecondo = validaSecondoRuolo(dati.role, dati.role2);
+  if (erroreSecondo) return erroreSecondo;
 
   const flag = typeof dati.flag === "string" && dati.flag !== "" ? dati.flag : null;
   const invariata = flagPrecedente !== undefined && flag === flagPrecedente;
@@ -84,6 +108,7 @@ export async function renderEditorGiocatore(root, ctx, { playerId, indietro, all
   const stato = {
     name: dettaglio ? dettaglio.name : "",
     role: dettaglio ? dettaglio.role : "CC",
+    role2: dettaglio && dettaglio.role2 ? dettaglio.role2 : "",
     flag: dettaglio ? dettaglio.flag ?? "" : bandiereDisponibili[0]?.filename || "",
     canLogin: dettaglio ? dettaglio.canLogin : true,
     pinCreated: dettaglio ? dettaglio.pinCreated : false,
@@ -167,7 +192,13 @@ export async function renderEditorGiocatore(root, ctx, { playerId, indietro, all
     const ruoloSelect = el("select", {
       className: "selezione",
       attrs: { id: "ruolo-giocatore", "aria-label": "Ruolo" },
-      on: { change: (e) => (stato.role = e.target.value) },
+      on: {
+        change: (e) => {
+          stato.role = e.target.value;
+          if (stato.role === "P") stato.role2 = "";
+          disegna();
+        },
+      },
     });
     for (const r of ETICHETTE_RUOLI) {
       const op = el("option", { text: r.label, attrs: { value: r.value } });
@@ -180,6 +211,44 @@ export async function renderEditorGiocatore(root, ctx, { playerId, indietro, all
         children: [el("label", { className: "campo-etichetta", text: "Ruolo", attrs: { for: "ruolo-giocatore" } }), ruoloSelect],
       }),
     );
+
+    // Secondo ruolo (facoltativo, solo movimento: mai per il portiere)
+    if (stato.role === "P") {
+      modulo.append(
+        el("div", {
+          className: "campo",
+          children: [el("p", { className: "nota", text: "Il portiere non ha un secondo ruolo." })],
+        }),
+      );
+    } else {
+      const secondoSelect = el("select", {
+        className: "selezione",
+        attrs: { id: "secondo-ruolo-giocatore", "aria-label": "Secondo ruolo (facoltativo)" },
+        on: { change: (e) => (stato.role2 = e.target.value) },
+      });
+      const nessunoOp = el("option", { text: "— Nessuno —", attrs: { value: "" } });
+      if (!stato.role2) nessunoOp.selected = true;
+      secondoSelect.append(nessunoOp);
+      for (const r of ETICHETTE_RUOLI_SECONDI) {
+        if (r.value === stato.role) continue;
+        const op = el("option", { text: r.label, attrs: { value: r.value } });
+        if (stato.role2 === r.value) op.selected = true;
+        secondoSelect.append(op);
+      }
+      modulo.append(
+        el("div", {
+          className: "campo",
+          children: [
+            el("label", { className: "campo-etichetta", text: "Secondo ruolo (facoltativo)", attrs: { for: "secondo-ruolo-giocatore" } }),
+            secondoSelect,
+            el("p", {
+              className: "nota",
+              text: "Se scelto, le squadre lo usano prima dei cambi ruolo: chi gioca lì non conta come fuori ruolo.",
+            }),
+          ],
+        }),
+      );
+    }
 
     // Bandiera
     const contenitoreBandiera = el("div", { className: "campo" });
@@ -334,6 +403,7 @@ export async function renderEditorGiocatore(root, ctx, { playerId, indietro, all
       const dati = {
         name: stato.name,
         role: stato.role,
+        role2: stato.role === "P" || !stato.role2 ? null : stato.role2,
         flag: stato.flag,
         canLogin: stato.canLogin,
       };

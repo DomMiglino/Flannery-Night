@@ -5,7 +5,7 @@
 import { Miniflare } from "miniflare";
 import type { D1Database } from "@cloudflare/workers-types";
 import { build } from "esbuild";
-import { mkdirSync, mkdtempSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -195,7 +195,12 @@ export async function startServer(): Promise<TestServer> {
   });
   const db = (await mf.getD1Database("DB")) as unknown as D1Database;
 
-  await runSql(db, readFileSync(join(ROOT, "migrations", "0001_init.sql"), "utf-8"));
+  // Tutte le migrazioni in ordine di nome (0001, 0002, ...), come fa
+  // wrangler in produzione: cosi i test vedono sempre lo schema intero.
+  const migDir = join(ROOT, "migrations");
+  for (const file of readdirSync(migDir).filter((f) => f.endsWith(".sql")).sort()) {
+    await runSql(db, readFileSync(join(migDir, file), "utf-8"));
+  }
   await runSql(db, readFileSync(join(ROOT, "migration", "triggers.sql"), "utf-8"));
 
   const triggersSql = readFileSync(join(ROOT, "migration", "triggers.sql"), "utf-8");

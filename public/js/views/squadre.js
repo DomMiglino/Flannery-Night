@@ -24,6 +24,10 @@ function ordinaGiocatori(lista) {
   });
 }
 
+function ruoloChip(g) {
+  return g && g.role2 ? `${g.role}/${g.role2}` : g.role;
+}
+
 function statoSelezione(formato, conta) {
   const attesi = 2 * formato;
   if (conta === attesi) return "Pronti: premi Conferma.";
@@ -129,7 +133,7 @@ export async function renderSquadre(root, ctx, { indietro }) {
       const attivo = selezionati.has(g.id);
       const chip = el("button", {
         className: attivo ? "squadre-chip squadre-chip-attivo" : "squadre-chip",
-        attrs: { type: "button", "aria-pressed": attivo ? "true" : "false", "aria-label": `${g.name}, ${g.role}, ${g.played} partite${attivo ? ", selezionato" : ""}` },
+        attrs: { type: "button", "aria-pressed": attivo ? "true" : "false", "aria-label": `${g.name}, ${ruoloChip(g)}, ${g.played} partite${attivo ? ", selezionato" : ""}` },
         on: {
           click: () => {
             if (selezionati.has(g.id)) selezionati.delete(g.id);
@@ -142,7 +146,7 @@ export async function renderSquadre(root, ctx, { indietro }) {
       chip.append(
         el("span", {
           className: "squadre-chip-sotto",
-          text: `${g.role} · ${g.played} ${g.played === 1 ? "partita" : "partite"}${attivo ? " · ✓" : ""}`,
+          text: `${ruoloChip(g)} · ${g.played} ${g.played === 1 ? "partita" : "partite"}${attivo ? " · ✓" : ""}`,
         }),
       );
       griglia.append(chip);

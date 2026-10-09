@@ -164,7 +164,7 @@ export async function createSeason(env: Env, auth: AuthedPlayer, input: string):
 export async function exportData(env: Env, auth: AuthedPlayer): Promise<Response> {
   const [seasons, players, matches, matchPlayers, votes] = await Promise.all([
     env.DB.prepare("SELECT * FROM seasons ORDER BY id").all<Record<string, unknown>>(),
-    env.DB.prepare("SELECT id, name, role, flag, active, can_login, is_admin, created_at FROM players ORDER BY name COLLATE NOCASE").all<Record<string, unknown>>(),
+    env.DB.prepare("SELECT id, name, role, role2, flag, active, can_login, is_admin, created_at FROM players ORDER BY name COLLATE NOCASE").all<Record<string, unknown>>(),
     env.DB.prepare("SELECT * FROM matches ORDER BY date DESC, id DESC").all<Record<string, unknown>>(),
     env.DB.prepare("SELECT * FROM match_players ORDER BY match_id, player_id").all<Record<string, unknown>>(),
     env.DB.prepare("SELECT voter_id, target_id, vel_tuf, tir_pre, pass_rin, dri_rif, dif_rea, fis_pia, updated_at FROM votes ORDER BY voter_id, target_id").all<Record<string, unknown>>(),

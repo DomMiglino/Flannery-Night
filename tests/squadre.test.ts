@@ -8,12 +8,15 @@ import {
   assegnaLinee,
   componiSquadre,
   correggiAttributi,
+  gravitaEffettiva,
   GRAVITA_FUORI_RUOLO,
   gravitaFuoriRuolo,
   POSTI,
   POSTI_CENTRALI,
   PESO_FIS,
   PESO_LINEE,
+  usaSecondoRuolo,
+  validaIngresso,
   type Convocato,
 } from "../src/squadre";
 import { ceilOverallForRole } from "../src/calc";
@@ -21,6 +24,10 @@ import { PIN, sessionCookie, startServer, type TestServer } from "./helpers/serv
 
 function mk(id: string, name: string, role: string, vals: number[], arrow: Convocato["formaArrow"] = "→", inattivo = false, played = 5): Convocato {
   return { id, name, role, mediane: [...vals], formaArrow: arrow, inattivo, played };
+}
+
+function mk2(id: string, name: string, role: string, role2: string | null, vals: number[], arrow: Convocato["formaArrow"] = "→", inattivo = false, played = 5): Convocato {
+  return { id, name, role, role2, mediane: [...vals], formaArrow: arrow, inattivo, played };
 }
 
 describe("forma e inattivita", () => {
@@ -265,6 +272,124 @@ describe("gravita fuori ruolo", () => {
     const riga = prop.avvisi.find((a) => a.startsWith("Fuori ruolo:"));
     expect(riga).toBeDefined();
     expect(riga).toBe("Fuori ruolo: Alfa (DL in DC), Zulu (DL in DC).");
+  });
+});
+
+describe("secondo ruolo", () => {
+  it("gravita effettiva: la migliore tra primario e secondario", () => {
+    // Senza secondo ruolo vale il primario.
+    expect(gravitaEffettiva("DL", null, "DC")).toBe(gravitaFuoriRuolo("DL", "DC"));
+    expect(gravitaEffettiva("DL", undefined, "DC")).toBe(1);
+    expect(gravitaEffettiva("DL", "", "DC")).toBe(1);
+    // Posto uguale al secondario: gravita 0 come il ruolo esatto.
+    expect(gravitaEffettiva("DL", "DC", "DC")).toBe(0);
+    expect(gravitaEffettiva("DL", "DC", "DL")).toBe(0);
+    // Altrove: il minimo tra i due (DL->CL 2, CC->CL 1).
+    expect(gravitaEffettiva("DL", "CC", "CL")).toBe(1);
+    expect(gravitaEffettiva("DL", "PC", "CL")).toBe(2);
+    // Secondario non valido o uguale al primario: vale il primario.
+    expect(gravitaEffettiva("DL", "P", "DC")).toBe(1);
+    expect(gravitaEffettiva("DL", "XX", "DC")).toBe(1);
+    expect(gravitaEffettiva("DL", "DL", "DC")).toBe(1);
+  });
+  it("uso del secondario solo con vantaggio sul primario", () => {
+    expect(usaSecondoRuolo("DL", "DC", "DC")).toBe(true);
+    expect(usaSecondoRuolo("DL", "CC", "CL")).toBe(true);
+    expect(usaSecondoRuolo("DL", "DC", "DL")).toBe(false);
+    expect(usaSecondoRuolo("DL", null, "DC")).toBe(false);
+    expect(usaSecondoRuolo("DL", "DL", "DC")).toBe(false);
+    expect(usaSecondoRuolo("DL", "P", "DC")).toBe(false);
+  });
+  it("posto nel secondo ruolo: gravita 0 e avviso dedicato, non fuori ruolo", () => {
+    // 5 contro 5: DL5 DC1 PC2 (surplus DL, deficit DC). Laterale Basso ha
+    // secondario DC: prende lui il posto DC con gravita 0, anche se
+    // Laterale Alto nel posto DC varrebbe di piu (78 contro 60, vedi
+    // "stessa gravita totale"). La gravita resta prioritaria: il secondo
+    // ruolo batte il cambio ruolo.
+    const conv: Convocato[] = [
+      mk("p1", "Portiere Uno", "P", [80, 80, 80, 80, 80, 80], "→", false, 8),
+      mk("p2", "Portiere Due", "P", [70, 70, 70, 70, 70, 70], "→", false, 7),
+      mk("dl-alto", "Laterale Alto", "DL", [65, 60, 65, 65, 85, 80], "→", false, 5),
+      mk2("dl-basso", "Laterale Basso", "DL", "DC", [60, 60, 60, 60, 60, 60], "→", false, 5),
+      mk("dl2", "Laterale Due", "DL", [60, 60, 60, 60, 60, 60], "→", false, 5),
+      mk("dl3", "Laterale Tre", "DL", [60, 60, 60, 60, 60, 60], "→", false, 5),
+      mk("dl4", "Laterale Quattro", "DL", [60, 60, 60, 60, 60, 60], "→", false, 5),
+      mk("dc1", "Centrale Uno", "DC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("pc1", "Punta Uno", "PC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("pc2", "Punta Due", "PC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+    ];
+    const piazzati = assegnaLinee(5, conv);
+    const basso = piazzati.find((p) => p.id === "dl-basso")!;
+    expect(basso.posto).toBe("DC");
+    expect(basso.gravita).toBe(0);
+    expect(basso.fuoriRuolo).toBe(false);
+    expect(basso.secondoRuolo).toBe(true);
+    expect(basso.role2).toBe("DC");
+    // Il piu forte resta nel ruolo primario: nessun fuori ruolo in giro.
+    expect(piazzati.find((p) => p.id === "dl-alto")?.posto).toBe("DL");
+    expect(piazzati.filter((p) => p.fuoriRuolo && !p.adattato)).toHaveLength(0);
+    const prop = componiSquadre(5, conv);
+    expect(prop.avvisi.join(" ")).not.toContain("Fuori ruolo");
+    expect(prop.avvisi.find((a) => a.startsWith("Nel secondo ruolo:"))).toBe(
+      "Nel secondo ruolo: Laterale Basso (DL in DC).",
+    );
+  });
+  it("secondario piu vicino ma non esatto: gravita attenuata e avviso doppio", () => {
+    // 6 contro 6: posti movimento DL4 DC2 CC2 PC2; giocatori DL5 DC2 CC1
+    // PC2 (surplus DL, deficit CC). Laterale Pronto ha secondario CL:
+    // DL->CC 2 contro CL->CC 1, quindi prende lui il posto CC con
+    // gravita 1 invece di 2, ma resta fuori ruolo attenuato.
+    const v = [60, 60, 60, 60, 60, 60];
+    const conv: Convocato[] = [
+      mk("p1", "Portiere Uno", "P", [80, 80, 80, 80, 80, 80], "→", false, 8),
+      mk("p2", "Portiere Due", "P", [70, 70, 70, 70, 70, 70], "→", false, 7),
+      mk2("dl-pronto", "Laterale Pronto", "DL", "CL", v, "→", false, 5),
+      mk("dl2", "Laterale Due", "DL", v, "→", false, 5),
+      mk("dl3", "Laterale Tre", "DL", v, "→", false, 5),
+      mk("dl4", "Laterale Quattro", "DL", v, "→", false, 5),
+      mk("dl5", "Laterale Cinque", "DL", v, "→", false, 5),
+      mk("dc1", "Centrale Uno", "DC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("dc2", "Centrale Due", "DC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("cc1", "Mediano Uno", "CC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("pc1", "Punta Uno", "PC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("pc2", "Punta Due", "PC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+    ];
+    const piazzati = assegnaLinee(6, conv);
+    const pronto = piazzati.find((p) => p.id === "dl-pronto")!;
+    expect(pronto.posto).toBe("CC");
+    expect(pronto.gravita).toBe(1);
+    expect(pronto.fuoriRuolo).toBe(true);
+    expect(pronto.secondoRuolo).toBe(true);
+    const prop = componiSquadre(6, conv);
+    const riga = prop.avvisi.find((a) => a.startsWith("Fuori ruolo:"));
+    expect(riga).toBe("Fuori ruolo: Laterale Pronto (DL/CL in CC).");
+    expect(prop.avvisi.some((a) => a.startsWith("Nel secondo ruolo:"))).toBe(false);
+  });
+  it("ingresso non valido per secondo ruolo vietato", () => {
+    const base = (): Convocato[] => [
+      mk("p1", "Portiere Uno", "P", [80, 80, 80, 80, 80, 80], "→", false, 8),
+      mk("p2", "Portiere Due", "P", [70, 70, 70, 70, 70, 70], "→", false, 7),
+      mk("dl1", "Laterale Uno", "DL", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("dl2", "Laterale Due", "DL", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("dl3", "Laterale Tre", "DL", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("dl4", "Laterale Quattro", "DL", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("dc1", "Centrale Uno", "DC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("dc2", "Centrale Due", "DC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("pc1", "Punta Uno", "PC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+      mk("pc2", "Punta Due", "PC", [70, 70, 70, 70, 70, 70], "→", false, 5),
+    ];
+    const casi: Array<[string, Convocato]> = [
+      ["oppure nessuno", { ...base()[2], role2: "XX" }],
+      ["diverso dal ruolo principale", { ...base()[2], role2: "DL" }],
+      ["oppure nessuno", { ...base()[2], role2: "P" }],
+      ["non ha un secondo ruolo", { ...base()[0], role2: "DC" }],
+    ];
+    for (const [atteso, alterato] of casi) {
+      const conv = base().map((c) => (c.id === alterato.id ? alterato : c));
+      expect(validaIngresso(5, conv), alterato.id).toContain(atteso);
+    }
+    // Senza secondo ruolo resta tutto valido.
+    expect(validaIngresso(5, base())).toBeNull();
   });
 });
 
@@ -743,13 +868,46 @@ describe("rotta", () => {
     const fantasmi = [...DIECI.slice(0, 9), "fantasma"];
     expect((await s.call("/api/admin/squadre/proposta", { method: "POST", body: { formato: 5, convocati: fantasmi }, cookie })).body.error).toMatch(/non trovato/);
   });
+  it("secondo ruolo via API: in elenco e nella proposta", async () => {
+    const cookie = await loginCookie("fake-otto", PIN.fakeOtto);
+    // fake-uno e CL: secondario DC valido.
+    const mod = await s.call("/api/admin/players/fake-uno", {
+      method: "PUT",
+      cookie,
+      body: { name: "Fake Uno", role: "CL", role2: "DC", flag: "Italia.png", canLogin: true },
+    });
+    expect(mod.status).toBe(200);
+    expect(mod.body.role2).toBe("DC");
+    const elenco = await s.call("/api/admin/squadre/giocatori", { cookie });
+    expect(elenco.status).toBe(200);
+    expect(elenco.body.players.find((p: { id: string }) => p.id === "fake-uno").role2).toBe("DC");
+    // Vietati: P come secondo ruolo e secondo ruolo al portiere.
+    for (const body of [
+      { name: "Fake Uno", role: "CL", role2: "P", flag: "Italia.png", canLogin: true },
+      { name: "Fake Uno", role: "CL", role2: "CL", flag: "Italia.png", canLogin: true },
+    ]) {
+      expect((await s.call("/api/admin/players/fake-uno", { method: "PUT", cookie, body })).status).toBe(400);
+    }
+    expect(
+      (
+        await s.call("/api/admin/players/antonioportiere", {
+          method: "PUT",
+          cookie,
+          body: { name: "Fake Altro Portiere", role: "P", role2: "DC", flag: "Italia.png", canLogin: true },
+        })
+      ).status,
+    ).toBe(400);
+    const prop = await s.call("/api/admin/squadre/proposta", { method: "POST", body: { formato: 5, convocati: DIECI }, cookie });
+    expect(prop.status).toBe(200);
+    expect(typeof prop.body.testo).toBe("string");
+  });
   it("200 per la gestione, senza scritture", async () => {
     const cookie = await loginCookie("fake-otto", PIN.fakeOtto);
     const elenco = await s.call("/api/admin/squadre/giocatori", { cookie });
     expect(elenco.status).toBe(200);
     expect(elenco.body.players.length).toBeGreaterThanOrEqual(10);
     const primo = elenco.body.players[0];
-    expect(Object.keys(primo).sort()).toEqual(["id", "name", "played", "role"]);
+    expect(Object.keys(primo).sort()).toEqual(["id", "name", "played", "role", "role2"]);
     const primaPartite = await s.first<{ n: number }>("SELECT COUNT(*) AS n FROM matches");
     const primaRegistro = await s.first<{ n: number }>("SELECT COUNT(*) AS n FROM audit_log");
     const prop = await s.call("/api/admin/squadre/proposta", { method: "POST", body: { formato: 5, convocati: DIECI }, cookie });

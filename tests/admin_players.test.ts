@@ -74,7 +74,7 @@ describe("permessi gestione giocatori", () => {
     expect((await s.call("/api/admin/flags", { cookie })).status).toBe(200);
     const elenco = await s.call("/api/admin/players", { cookie });
     expect(elenco.status).toBe(200);
-    expect(Object.keys(elenco.body.players[0]).sort()).toEqual(["canLogin", "flag", "id", "name", "role"]);
+    expect(Object.keys(elenco.body.players[0]).sort()).toEqual(["canLogin", "flag", "id", "name", "role", "role2"]);
     expect(elenco.text).not.toMatch(/pin_hash|pinHash|salt/);
     expect((await s.call("/api/admin/players/fake-uno", { cookie })).status).toBe(200);
     expect((await creaGiocatore(cookie)).status).toBe(201);
@@ -175,6 +175,88 @@ describe("creazione", () => {
       expect((await creaGiocatore(cookie, body)).status).toBe(400);
     }
     expect(await s.db.prepare("SELECT id FROM players WHERE name = 'Nuovo Nome'").first()).toBeNull();
+  });
+});
+
+describe("secondo ruolo", () => {
+  it("si sceglie in creazione ed e null quando manca", async () => {
+    const cookie = await loginCookie();
+    const con = await creaGiocatore(cookie, { ...INPUT, name: "Con Secondo", role: "DL", role2: "DC" });
+    expect(con.status).toBe(201);
+    expect(con.body.role2).toBe("DC");
+    expect(await s.first<{ role2: string | null }>("SELECT role2 FROM players WHERE id = ?", con.body.id)).toEqual({ role2: "DC" });
+    const senza = await creaGiocatore(cookie, { ...INPUT, name: "Senza Secondo", role: "DL" });
+    expect(senza.status).toBe(201);
+    expect(senza.body.role2).toBeNull();
+    const dettaglio = await s.call(`/api/admin/players/${con.body.id}`, { cookie });
+    expect(dettaglio.body.role2).toBe("DC");
+    const audit = await s.call("/api/admin/audit", { cookie });
+    const evento = audit.body.events.find((e: { action: string; detail: string }) => e.action === "player_create" && e.detail.includes("Con Secondo"));
+    expect(evento.detail).toContain("secondoRuolo=DC");
+  });
+
+  it("rifiuta P come secondo ruolo, uguale al primario e secondo al portiere", async () => {
+    const cookie = await loginCookie();
+    const casi: Array<[Record<string, unknown>, string]> = [
+      [{ ...INPUT, name: "Secondo P", role: "DL", role2: "P" }, "oppure nessuno"],
+      [{ ...INPUT, name: "Secondo XX", role: "DL", role2: "XX" }, "oppure nessuno"],
+      [{ ...INPUT, name: "Secondo Uguale", role: "DL", role2: "DL" }, "diverso dal ruolo principale"],
+      [{ ...INPUT, name: "Portiere Bis", role: "P", role2: "DC" }, "non ha un secondo ruolo"],
+      [{ ...INPUT, name: "Secondo Numero", role: "DL", role2: 42 }, "oppure nessuno"],
+    ];
+    for (const [body, errore] of casi) {
+      const result = await creaGiocatore(cookie, body);
+      expect(result.status, body.name as string).toBe(400);
+      expect(result.body.error).toContain(errore);
+    }
+    expect(await s.db.prepare("SELECT id FROM players WHERE name LIKE 'Secondo %'").first()).toBeNull();
+    expect(await s.db.prepare("SELECT id FROM players WHERE name = 'Portiere Bis'").first()).toBeNull();
+  });
+
+  it("in modifica si cambia, si azzera e si perde diventando portiere", async () => {
+    const cookie = await loginCookie();
+    const creato = await creaGiocatore(cookie, { ...INPUT, name: "Cambia Secondo", role: "DL", role2: "DC" });
+    const id = creato.body.id as string;
+    const invariato = await s.call(`/api/admin/players/${id}`, {
+      method: "PUT",
+      cookie,
+      body: { name: "Cambia Secondo", role: "CC", flag: FLAG, canLogin: true },
+    });
+    // Campo mancante: il valore resta (ma qui il primario e cambiato e DC
+    // resta diverso da CC, quindi valido).
+    expect(invariato.status).toBe(200);
+    expect(invariato.body.role2).toBe("DC");
+    // Primario che collide col secondario mantenuto: va corretto.
+    const collisione = await s.call(`/api/admin/players/${id}`, {
+      method: "PUT",
+      cookie,
+      body: { name: "Cambia Secondo", role: "DC", flag: FLAG, canLogin: true },
+    });
+    expect(collisione.status).toBe(400);
+    expect(collisione.body.error).toContain("diverso dal ruolo principale");
+    const azzerato = await s.call(`/api/admin/players/${id}`, {
+      method: "PUT",
+      cookie,
+      body: { name: "Cambia Secondo", role: "CC", role2: null, flag: FLAG, canLogin: true },
+    });
+    expect(azzerato.status).toBe(200);
+    expect(azzerato.body.role2).toBeNull();
+    // Chi diventa portiere perde il secondo ruolo anche se il campo manca.
+    await s.call(`/api/admin/players/${id}`, {
+      method: "PUT",
+      cookie,
+      body: { name: "Cambia Secondo", role: "CC", role2: "DC", flag: FLAG, canLogin: true },
+    });
+    const portiere = await s.call(`/api/admin/players/${id}`, {
+      method: "PUT",
+      cookie,
+      body: { name: "Cambia Secondo", role: "P", flag: FLAG, canLogin: true },
+    });
+    expect(portiere.status).toBe(200);
+    expect(portiere.body.role2).toBeNull();
+    expect(await s.first<{ role2: string | null }>("SELECT role2 FROM players WHERE id = ?", id)).toEqual({ role2: null });
+    const audit = await s.db.prepare("SELECT detail FROM audit_log WHERE action = 'player_update' ORDER BY id DESC LIMIT 1").first<{ detail: string }>();
+    expect(audit?.detail).toContain("secondoRuolo");
   });
 });
 

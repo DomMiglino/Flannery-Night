@@ -80,6 +80,7 @@ describe("classifica", () => {
         "powerScore",
         "rendimento",
         "role",
+        "role2",
         "stemma",
       ].sort(),
     );

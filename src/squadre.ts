@@ -54,6 +54,30 @@ export function gravitaFuoriRuolo(ruolo: string, posto: string): number {
   return 1;
 }
 
+// Secondo ruolo facoltativo dei giocatori di movimento: mai il portiere
+// (il portiere non ha un secondo ruolo e non e un secondo ruolo).
+export const RUOLI_SECONDI: ReadonlySet<string> = new Set(["DC", "DL", "CC", "CL", "PC"]);
+
+/**
+ * Gravita effettiva col secondo ruolo: la migliore tra primario e
+ * secondario. Chi gioca nel secondo ruolo ha gravita 0 (stessa priorita
+ * del ruolo esatto); chi va altrove ma col secondario piu vicino paga
+ * comunque meno. Senza secondo ruolo vale la gravita del primario.
+ */
+export function gravitaEffettiva(role: string, role2: string | null | undefined, posto: string): number {
+  const base = gravitaFuoriRuolo(role, posto);
+  if (role2 === null || role2 === undefined || role2 === "" || role2 === role) return base;
+  if (!RUOLI_SECONDI.has(role2)) return base;
+  return Math.min(base, gravitaFuoriRuolo(role2, posto));
+}
+
+/** Vero se il posto usa il secondo ruolo con vantaggio sul primario. */
+export function usaSecondoRuolo(role: string, role2: string | null | undefined, posto: string): boolean {
+  if (role2 === null || role2 === undefined || role2 === "" || role2 === role) return false;
+  if (!RUOLI_SECONDI.has(role2)) return false;
+  return gravitaFuoriRuolo(role2, posto) < gravitaFuoriRuolo(role, posto);
+}
+
 export const DELTA_FORMA: Record<Arrow, number> = {
   "↑": 2,
   "↗": 1,
@@ -91,6 +115,9 @@ export interface Convocato {
   id: string;
   name: string;
   role: string;
+  // Secondo ruolo facoltativo di movimento (DC, DL, CC, CL, PC) o null
+  // quando assente. Mai per il portiere, mai "P".
+  role2?: string | null;
   // Sei valori nell'ordine VEL, TIR, PASS, DRI, DIF, FIS.
   // Per il ruolo P stesso ordine con TUF, PRE, RIN, RIF, REA, PIA.
   mediane: (number | null)[];
@@ -105,12 +132,17 @@ export interface Piazzato {
   id: string;
   name: string;
   role: string;
+  // Secondo ruolo del giocatore (null quando assente).
+  role2: string | null;
   // Ruolo del posto occupato (P, DL, DC, CL, CC, PC).
   posto: string;
   linea: Linea;
   fuoriRuolo: boolean;
   // Gravita del fuori ruolo (0 esatto; vedi GRAVITA_FUORI_RUOLO).
   gravita: number;
+  // Vero quando il posto usa il secondo ruolo con vantaggio sul primario
+  // (gravita 0 nel secondo ruolo esatto, oppure gravita attenuata).
+  secondoRuolo: boolean;
   // Vero per i portieri oltre i due titolari, valutati a stima.
   adattato: boolean;
   senzaVoti: boolean;
@@ -261,6 +293,14 @@ export function validaIngresso(formato: number, convocati: Convocato[]): string 
     if (!c || typeof c.id !== "string" || c.id.trim() === "") return "Ogni convocato deve avere un id valido.";
     if (visti.has(c.id)) return "Ogni giocatore puo comparire una sola volta tra i convocati.";
     visti.add(c.id);
+    const r2 = c.role2 === undefined ? null : c.role2;
+    if (r2 !== null && r2 !== "") {
+      if (typeof r2 !== "string" || !RUOLI_SECONDI.has(r2)) {
+        return "Il secondo ruolo deve essere uno tra DC, DL, CC, CL, PC oppure nessuno.";
+      }
+      if (c.role === "P") return "Il portiere non ha un secondo ruolo.";
+      if (r2 === c.role) return "Il secondo ruolo deve essere diverso dal ruolo principale.";
+    }
   }
   return null;
 }
@@ -358,10 +398,13 @@ function assegnaOttima(
 
 /**
  * Assegnazione ai posti: nell'ordine gravita totale dei fuori ruolo (vedi
- * GRAVITA_FUORI_RUOLO), somma dei centrali (DC+CC, i piu forti al centro
+ * GRAVITA_FUORI_RUOLO, con gravita effettiva del secondo ruolo quando
+ * presente), somma dei centrali (DC+CC, i piu forti al centro
  * con overall ricalcolato del posto), somma di tutti; i posti scoperti
  * vanno ai migliori ricalcolati con i pesi del posto. Anche dentro la
- * stessa linea (DL nel posto DC, gravita 1) vale ricalcolo e avviso.
+ * stessa linea (DL nel posto DC, gravita 1) vale ricalcolo e avviso, salvo
+ * che il posto sia il secondo ruolo del giocatore (gravita 0, avviso
+ * dedicato "Nel secondo ruolo").
  */
 export function assegnaLinee(formato: number, convocati: Convocato[]): Piazzato[] {
   const base = POSTI[formato];
@@ -412,10 +455,12 @@ export function assegnaLinee(formato: number, convocati: Convocato[]): Piazzato[
     id: r.id,
     name: r.name,
     role: r.role,
+    role2: null,
     posto: "P",
     linea: "POR" as Linea,
     fuoriRuolo: false,
     gravita: 0,
+    secondoRuolo: false,
     adattato: false,
     senzaVoti: r.senzaVoti,
     overallEff: valorePor(r),
@@ -429,12 +474,16 @@ export function assegnaLinee(formato: number, convocati: Convocato[]): Piazzato[
   // giocatore di movimento va in porta e nessun P va in movimento se non
   // come adattato a stima.
   const bacino = righe.filter((r) => !idTitolari.has(r.id));
-  const valoreMov = (r: Riga, posto: string): { gravita: number; overall: number } => {
-    if (r.role === "P") return { gravita: 1, overall: stimaMov };
-    const gravita = gravitaFuoriRuolo(r.role, posto);
-    if (r.senzaVoti) return { gravita, overall: stimaMov };
-    if (r.role === posto) return { gravita: 0, overall: r.proprio as number };
-    return { gravita, overall: ceilOverallForRole(posto, aOggetto(r.corretti as number[])) as number };
+  const valoreMov = (r: Riga, posto: string): { gravita: number; overall: number; secondo: boolean } => {
+    if (r.role === "P") return { gravita: 1, overall: stimaMov, secondo: false };
+    // Il secondo ruolo conta solo sulla gravita (priorita sui cambi ruolo
+    // con impatto minore): l'overall resta sempre ricalcolato coi pesi
+    // del posto, come per qualunque fuori ruolo.
+    const gravita = gravitaEffettiva(r.role, r.role2, posto);
+    const secondo = usaSecondoRuolo(r.role, r.role2, posto);
+    if (r.senzaVoti) return { gravita, overall: stimaMov, secondo };
+    if (r.role === posto) return { gravita: 0, overall: r.proprio as number, secondo: false };
+    return { gravita, overall: ceilOverallForRole(posto, aOggetto(r.corretti as number[])) as number, secondo };
   };
   const fisDi = (r: Riga): number | null => {
     if (r.role === "P" || r.senzaVoti || !r.corretti) return null;
@@ -455,10 +504,12 @@ export function assegnaLinee(formato: number, convocati: Convocato[]): Piazzato[
       id: r.id,
       name: r.name,
       role: r.role,
+      role2: r.role2 ?? null,
       posto,
       linea: LINEA_DI_POSTO[posto],
       fuoriRuolo: v.gravita > 0,
       gravita: v.gravita,
+      secondoRuolo: v.secondo,
       adattato: r.role === "P",
       senzaVoti: r.senzaVoti,
       overallEff: v.overall,
@@ -665,9 +716,17 @@ export function componiSquadre(formato: number, convocati: Convocato[]): Propost
   if (fuori.length > 0) {
     const nomi = [...fuori]
       .sort((a, b) => b.gravita - a.gravita || confrontaNomi(a.name, b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-      .map((p) => `${p.name} (${p.role} in ${p.posto})`)
+      .map((p) => (p.secondoRuolo && p.role2 ? `${p.name} (${p.role}/${p.role2} in ${p.posto})` : `${p.name} (${p.role} in ${p.posto})`))
       .join(", ");
     avvisi.push(`Fuori ruolo: ${nomi}.`);
+  }
+  const secondi = piazzati.filter((p) => p.secondoRuolo && !p.fuoriRuolo && !p.adattato);
+  if (secondi.length > 0) {
+    const nomi = [...secondi]
+      .sort((a, b) => confrontaNomi(a.name, b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .map((p) => `${p.name} (${p.role} in ${p.posto})`)
+      .join(", ");
+    avvisi.push(`Nel secondo ruolo: ${nomi}.`);
   }
 
   return {

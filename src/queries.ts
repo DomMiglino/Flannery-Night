@@ -10,6 +10,7 @@ export interface PlayerRow {
   id: string;
   name: string;
   role: string;
+  role2: string | null;
   flag: string | null;
   active: number;
   can_login: number;
@@ -31,7 +32,7 @@ export interface MatchCounters {
   S: number;
 }
 
-const PLAYER_COLUMNS = "id, name, role, flag, active, can_login, is_admin";
+const PLAYER_COLUMNS = "id, name, role, role2, flag, active, can_login, is_admin";
 
 export async function listPlayers(env: Env, opts: { loginOnly?: boolean } = {}): Promise<PlayerRow[]> {
   const where = opts.loginOnly ? "WHERE active = 1 AND can_login = 1" : "WHERE active = 1";
@@ -207,6 +208,7 @@ export function seasonCounters(matches: CalcMatch[], playerIds: string[]): Map<s
 export interface RankingRow extends PlayerSeason {
   name: string;
   role: string;
+  role2: string | null;
   flag: string | null;
   guidinha: number;
   V: number;
@@ -236,6 +238,7 @@ export async function buildRanking(env: Env, seasonId: number): Promise<RankingR
       ...row,
       name: player.name,
       role: player.role,
+      role2: player.role2 ?? null,
       flag: player.flag,
       guidinha: guidinha.get(row.playerId) ?? 0,
       V: c.V,

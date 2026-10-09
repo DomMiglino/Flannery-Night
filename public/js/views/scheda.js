@@ -70,7 +70,7 @@ export async function renderScheda(root, ctx, playerId, conferma = null) {
   root.append(
     riepilogo({
       nome: scheda.name,
-      ruolo: scheda.role,
+      ruolo: scheda.role2 ? `${scheda.role}/${scheda.role2}` : scheda.role,
       flag: scheda.flag,
       stemma: scheda.stemma ?? null,
       variante: "scheda",

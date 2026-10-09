@@ -35,7 +35,7 @@ import { fasciaOverall, hrefPremi, mostraNuovaStagione, mostraTastoPremi, soloSt
 import { testoDoppio, testoCella, votoBasso, colonnePortieri, colonneMovimento, INIZIALE_PORTIERI, INIZIALE_MOVIMENTO, tabelleGiocatori } from "../public/js/views/giocatori.js";
 import { completaAccesso } from "../public/js/views/accesso.js";
 import { etichettaAzioneRegistro, formatoDettaglioRegistro } from "../public/js/views/registro.js";
-import { formatoOra, validaDatiGiocatore } from "../public/js/views/editor_giocatore.js";
+import { formatoOra, validaDatiGiocatore, validaSecondoRuolo } from "../public/js/views/editor_giocatore.js";
 import { azioneAccount, impostaCollegato, isCollegato, prendiReturnTo, ricordaReturnTo, utenteCollegato, vociMenu } from "../public/js/state.js";
 import { PREMI, TITOLO_PAGINA, hrefClassifica, hrefContest, testoPremio } from "../public/js/views/contest.js";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -360,6 +360,21 @@ describe("form giocatore", () => {
     expect(validaDatiGiocatore({ ...dati, flag: "vecchia.svg" }, bandiere, "vecchia.svg")).toBeNull();
     expect(validaDatiGiocatore({ ...dati, flag: "altra.svg" }, bandiere, "vecchia.svg")).toContain("bandiera");
     expect(validaDatiGiocatore({ ...dati, flag: "" }, bandiere, null)).toBeNull();
+  });
+
+  it("valida il secondo ruolo facoltativo, mai per il portiere", () => {
+    expect(validaSecondoRuolo("CC", undefined)).toBeNull();
+    expect(validaSecondoRuolo("CC", null)).toBeNull();
+    expect(validaSecondoRuolo("CC", "")).toBeNull();
+    expect(validaSecondoRuolo("CC", "DC")).toBeNull();
+    expect(validaSecondoRuolo("CC", "XX")).toContain("secondo ruolo");
+    expect(validaSecondoRuolo("CC", "P")).toContain("secondo ruolo");
+    expect(validaSecondoRuolo("CC", "CC")).toContain("diverso");
+    expect(validaSecondoRuolo("P", "DC")).toContain("portiere");
+    expect(validaSecondoRuolo("P", null)).toBeNull();
+    expect(validaDatiGiocatore({ ...dati, role2: "DC" }, bandiere)).toBeNull();
+    expect(validaDatiGiocatore({ ...dati, role: "P", role2: "DC" }, bandiere)).toContain("portiere");
+    expect(validaDatiGiocatore({ ...dati, role: "DC", role2: "DC" }, bandiere)).toContain("diverso");
   });
 
   it("formatta l'ora del blocco e nasconde date non valide", () => {

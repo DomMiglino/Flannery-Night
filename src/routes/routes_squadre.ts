@@ -12,13 +12,14 @@ interface RigaGiocatore {
   id: string;
   name: string;
   role: string;
+  role2: string | null;
 }
 
 /** Elenco per la griglia: tutti i giocatori, anche con 0 presenze. */
 export async function elencoSquadre(env: Env): Promise<Response> {
   const stagione = await resolveSeason(env, null);
   if (!stagione) return fail(404, MSG.notFound);
-  const res = await env.DB.prepare("SELECT id, name, role FROM players ORDER BY name COLLATE NOCASE").all<RigaGiocatore>();
+  const res = await env.DB.prepare("SELECT id, name, role, role2 FROM players ORDER BY name COLLATE NOCASE").all<RigaGiocatore>();
   const righe = res.results ?? [];
   const partite = await loadSeasonMatches(env, stagione.id);
   const presenze = new Map<string, number>();
@@ -28,7 +29,7 @@ export async function elencoSquadre(env: Env): Promise<Response> {
       presenze.set(e.playerId, (presenze.get(e.playerId) ?? 0) + 1);
     }
   }
-  const giocatori = righe.map((p) => ({ id: p.id, name: p.name, role: p.role, played: presenze.get(p.id) ?? 0 }));
+  const giocatori = righe.map((p) => ({ id: p.id, name: p.name, role: p.role, role2: p.role2 ?? null, played: presenze.get(p.id) ?? 0 }));
   giocatori.sort((a, b) => {
     if (b.played !== a.played) return b.played - a.played;
     const n = String(a.name).localeCompare(String(b.name), "it", { sensitivity: "base" });
@@ -71,7 +72,7 @@ export async function propostaSquadre(env: Env, request: Request): Promise<Respo
   }
 
   const segnaposto = ids.map(() => "?").join(",");
-  const esistenti = await env.DB.prepare(`SELECT id, name, role FROM players WHERE id IN (${segnaposto})`).bind(...ids).all<RigaGiocatore>();
+  const esistenti = await env.DB.prepare(`SELECT id, name, role, role2 FROM players WHERE id IN (${segnaposto})`).bind(...ids).all<RigaGiocatore>();
   const perId = new Map((esistenti.results ?? []).map((r) => [r.id, r]));
   for (const id of ids) {
     if (!perId.has(id)) return fail(400, `Giocatore non trovato: ${id}.`);
@@ -100,6 +101,7 @@ export async function propostaSquadre(env: Env, request: Request): Promise<Respo
       id: riga.id,
       name: riga.name,
       role: riga.role,
+      role2: riga.role2 ?? null,
       mediane: [riepilogo.vel_tuf, riepilogo.tir_pre, riepilogo.pass_rin, riepilogo.dri_rif, riepilogo.dif_rea, riepilogo.fis_pia],
       formaArrow: stats.formaArrow,
       inattivo: ha4 && !presentiUltime.get(id),
@@ -109,8 +111,8 @@ export async function propostaSquadre(env: Env, request: Request): Promise<Respo
 
   try {
     const proposta = componiSquadre(formato, convocati);
-    const riduci = (p: { id: string; name: string; role: string; posto: string; linea: string; overallEff: number; played: number }) => ({
-      id: p.id, name: p.name, role: p.role, posto: p.posto, linea: p.linea, overall: p.overallEff, played: p.played,
+    const riduci = (p: { id: string; name: string; role: string; role2: string | null; secondoRuolo: boolean; posto: string; linea: string; overallEff: number; played: number }) => ({
+      id: p.id, name: p.name, role: p.role, role2: p.role2, secondoRuolo: p.secondoRuolo, posto: p.posto, linea: p.linea, overall: p.overallEff, played: p.played,
     });
     return json({
       formato: proposta.formato,
