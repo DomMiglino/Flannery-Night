@@ -13,6 +13,7 @@ export const STEMMI: string[] = [
   "koke.png",
   "lob.png",
   "marco-del-flannery.png",
+  "martin.png",
   "mimmo.png",
   "nicolas.png",
   "pasquale.png",
