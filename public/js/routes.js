@@ -72,6 +72,7 @@ export function resolveRoute(pathname, { authed = false, search = "" } = {}) {
   }
   if (path === "/partite") return { name: VISTA.partite, season };
   if (path === "/partite/nuova") return { name: VISTA.partite, sotto: "nuova", season };
+  if (path === "/partite/squadre") return { name: VISTA.partite, sotto: "squadre", season };
   if (path.startsWith("/partite/")) {
     const resto = safeDecode(path.slice("/partite/".length));
     const modifica = resto.match(/^(.+)\/modifica$/);

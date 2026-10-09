@@ -1,6 +1,6 @@
 import { ApiError, api } from "../api.js";
 import { clear, el } from "../dom.js";
-import { errore, scheletro, titolo } from "../ui.js";
+import { attesa, errore, scheletro, titolo } from "../ui.js";
 
 export function isSecurityAction(action) {
   return [
@@ -127,6 +127,7 @@ export async function renderRegistro(root, ctx) {
 
   const elenco = el("div", { className: "registro-lista" });
   elenco.append(scheletro(6));
+  elenco.append(attesa());
   root.append(elenco);
 
   async function carica(before = null) {

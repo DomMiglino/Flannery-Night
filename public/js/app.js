@@ -5,6 +5,7 @@
 
 import { ApiError, api } from "./api.js";
 import { clear, el, linkInterno } from "./dom.js";
+import { attesa } from "./ui.js";
 import {
   ascolta,
   impostaCollegato,
@@ -309,6 +310,7 @@ function titoloPagina(nome) {
 async function avvia() {
   prendiElementi();
   ctx.root = dom.contenuto;
+  dom.contenuto.append(attesa());
   history.scrollRestoration = "manual";
 
   for (const nodo of dom.nav.values()) {

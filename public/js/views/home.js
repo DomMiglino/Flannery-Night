@@ -5,7 +5,7 @@ import { ApiError, api } from "../api.js";
 import { clear, el } from "../dom.js";
 import { formatNumber } from "../format.js";
 import { valoriDaVoto, votiPerTarget } from "../ratings.js";
-import { cella, errore, rendimento, riepilogo, scheletro } from "../ui.js";
+import { attesa, cella, errore, rendimento, riepilogo } from "../ui.js";
 
 export async function renderHome(root, ctx) {
   if (!ctx.collegato()) {
@@ -13,7 +13,7 @@ export async function renderHome(root, ctx) {
     return;
   }
   clear(root);
-  root.append(scheletro(4));
+  root.append(attesa());
 
   const me = ctx.me();
   try {

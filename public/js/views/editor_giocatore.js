@@ -4,7 +4,7 @@
 
 import { ApiError, api } from "../api.js";
 import { clear, el } from "../dom.js";
-import { bandiera, errore, scheletro, titolo } from "../ui.js";
+import { attesa, bandiera, errore, titolo } from "../ui.js";
 import { lasciaAvviso } from "../state.js";
 
 export const ETICHETTE_RUOLI = [
@@ -53,7 +53,7 @@ export function formatoOra(isoString) {
 export async function renderEditorGiocatore(root, ctx, { playerId, indietro, allaFine }) {
   clear(root);
   root.append(titolo(playerId ? "Modifica giocatore" : "Nuovo giocatore"));
-  root.append(scheletro(5));
+  root.append(attesa());
 
   let bandiereDisponibili = [];
   let dettaglio = null;

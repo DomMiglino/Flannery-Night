@@ -1177,3 +1177,40 @@ describe("guardie sul modulo delle descrizioni", () => {
     expect(blocco).not.toMatch(/display\s*:\s*none/);
   });
 });
+
+describe("indicatore di caricamento unico", () => {
+  it("ruolo status, testo Caricamento, nessuna immagine", () => {
+    const ui = readFileSync(new URL("../public/js/ui.js", import.meta.url), "utf8");
+    expect(ui).toContain("export function attesa(");
+    const inizio = ui.indexOf("export function attesa(");
+    expect(inizio).toBeGreaterThan(-1);
+    const dopo = ui.indexOf("\nexport ", inizio + 1);
+    const blocco = dopo === -1 ? ui.slice(inizio) : ui.slice(inizio, dopo);
+    expect(blocco).toContain('role: "status"');
+    expect(blocco).toContain('aria-live": "polite"');
+    expect(blocco).toContain("Caricamento");
+    expect(blocco).toContain("attesa-anello");
+    expect(blocco).not.toContain("img");
+    expect(blocco).not.toContain("url(");
+    const css = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
+    expect(css).toContain(".attesa-anello");
+    expect(css).toContain(".attesa-punti::after");
+    expect(css).toContain("prefers-reduced-motion");
+    const viste = [
+      "../public/js/views/home.js",
+      "../public/js/views/classifica.js",
+      "../public/js/views/giocatori.js",
+      "../public/js/views/scheda.js",
+      "../public/js/views/partite.js",
+      "../public/js/views/registro.js",
+      "../public/js/views/editor.js",
+      "../public/js/views/editor_giocatore.js",
+      "../public/js/views/squadre.js",
+      "../public/js/app.js",
+    ];
+    for (const percorso of viste) {
+      const src = readFileSync(new URL(percorso, import.meta.url), "utf8");
+      expect(src, percorso).toContain("attesa(");
+    }
+  });
+});

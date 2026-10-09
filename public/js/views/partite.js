@@ -11,12 +11,23 @@ import { clear, el } from "../dom.js";
 import { formatShortDate } from "../format.js";
 import { etichetteGol, formatoPartita, guidinhaLinea, matchHeadline, sortTeamPlayers } from "../matches.js";
 import { lasciaAvviso, prendiAvviso } from "../state.js";
-import { errore, nota, scheletro, titolo } from "../ui.js";
+import { attesa, errore, nota, titolo } from "../ui.js";
 import { renderEditorPartita } from "./editor.js";
+import { renderSquadre } from "./squadre.js";
 
 export async function renderPartite(root, ctx, rotta = {}) {
   const me = ctx.me();
   const gestione = !!me && me.isAdmin === true;
+
+  // Componi squadre solo con il permesso: gli altri tornano all'archivio.
+  if (rotta.sotto === "squadre") {
+    if (!gestione) {
+      ctx.navigate(indietroA(ctx));
+      return;
+    }
+    await renderSquadre(root, ctx, { indietro: indietroA(ctx) });
+    return;
+  }
 
   // Strumenti di gestione solo con il permesso: gli altri vedono sempre
   // l'archivio normale, senza tracce né messaggi.
@@ -45,7 +56,7 @@ export async function renderPartite(root, ctx, rotta = {}) {
 
   clear(root);
   root.append(titolo("Partite"));
-  root.append(scheletro(5));
+  root.append(attesa());
 
   try {
     const risposta = await api.matches(ctx.stagione());
@@ -65,6 +76,17 @@ export async function renderPartite(root, ctx, rotta = {}) {
     const avviso = prendiAvviso();
     if (avviso) root.append(el("p", { className: "nota-ok", text: avviso, attrs: { role: "status" } }));
     root.append(el("p", { className: "nota", text: `${risposta.season.name} · ${risposta.matches.length} partite` }));
+
+    if (gestione) {
+      root.append(
+        el("button", {
+          className: "pulsante pulsante-grande tasto-gestione-separato",
+          text: "Componi squadre",
+          attrs: { type: "button" },
+          on: { click: () => ctx.navigate("/partite/squadre") },
+        }),
+      );
+    }
 
     if (gestione && modificabile) {
       root.append(

@@ -26,6 +26,7 @@ import {
   modificaGiocatore,
 } from "./routes/routes_players_admin";
 import { matches, playerDetail, players, ranking, seasons } from "./routes/routes_data";
+import { elencoSquadre, propostaSquadre } from "./routes/routes_squadre";
 
 const WRITE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 
@@ -163,6 +164,18 @@ export async function handleApi(request: Request, env: Env, url: URL): Promise<R
       if (method === "GET") return dettaglioPartita(env, id);
       if (method === "PUT") return modificaPartita(env, auth.player.id, id, request);
       if (method === "DELETE") return eliminaPartita(env, auth.player.id, id);
+      return NOT_FOUND();
+    }
+    if (second === "squadre" && parts.length === 3 && parts[2] === "giocatori") {
+      const auth = await requireAdmin(env, request);
+      if (isResponse(auth)) return auth;
+      if (method === "GET") return elencoSquadre(env);
+      return NOT_FOUND();
+    }
+    if (second === "squadre" && parts.length === 3 && parts[2] === "proposta") {
+      const auth = await requireAdmin(env, request);
+      if (isResponse(auth)) return auth;
+      if (method === "POST") return propostaSquadre(env, request);
       return NOT_FOUND();
     }
     return NOT_FOUND();

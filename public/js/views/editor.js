@@ -7,7 +7,7 @@
 
 import { ApiError, api } from "../api.js";
 import { clear, el } from "../dom.js";
-import { errore, nota, scheletro, titolo } from "../ui.js";
+import { attesa, errore, nota, titolo } from "../ui.js";
 
 function rigaStato(classe = "nota") {
   return el("p", { className: classe, attrs: { role: "status" } });
@@ -60,7 +60,7 @@ export function filtraDisponibili(giocatori, selezionati, ricerca) {
 export async function renderEditorPartita(root, ctx, { matchId, indietro, allaFine }) {
   clear(root);
   root.append(titolo(matchId ? "Modifica partita" : "Nuova partita"));
-  root.append(scheletro(5));
+  root.append(attesa());
 
   let giocatori = [];
   let stato = null;

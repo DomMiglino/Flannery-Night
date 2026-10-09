@@ -7,7 +7,7 @@ import { clear, el, linkInterno } from "../dom.js";
 import { formatNumber } from "../format.js";
 import { withAppearances } from "../lists.js";
 import { ariaSort, memoriaOrdinamento, ordinaRighe, prossimoStato } from "../ordina.js";
-import { bandiera, errore, forma, scheletro, separaMvp, titolo } from "../ui.js";
+import { attesa, bandiera, errore, forma, separaMvp, titolo } from "../ui.js";
 import { withSeason } from "../routes.js";
 import { stagioneAttiva as idStagioneCorrente, utenteCollegato } from "../state.js";
 
@@ -167,7 +167,7 @@ function intestazione(colonna, stato, alToccare) {
 export async function renderClassifica(root, ctx) {
   clear(root);
   root.append(titolo("Classifica"));
-  root.append(scheletro(8));
+  root.append(attesa());
 
   let risposta;
   try {

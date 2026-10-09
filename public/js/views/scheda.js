@@ -5,11 +5,11 @@ import { ApiError, api, nonAutorizzato } from "../api.js";
 import { clear, el } from "../dom.js";
 import { clamp, formatNumber, formatVotes } from "../format.js";
 import { ATTRIBUTI, dettagliPerRuolo, etichettePerRuolo, valoriDaVoto, valoriIniziali, vociRiferimento, votiPerTarget } from "../ratings.js";
-import { cella, errore, esiti, rendimento, riepilogo, scheletro, titolo } from "../ui.js";
+import { attesa, cella, errore, esiti, rendimento, riepilogo, titolo } from "../ui.js";
 
 export async function renderScheda(root, ctx, playerId, conferma = null) {
   clear(root);
-  root.append(scheletro(6));
+  root.append(attesa());
 
   let scheda;
   try {

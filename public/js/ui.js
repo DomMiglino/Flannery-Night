@@ -21,6 +21,28 @@ export function scheletro(quante = 6) {
   return blocco;
 }
 
+/**
+ * Indicatore di caricamento unico: anello che gira e scritta
+ * "Caricamento" coi puntini animati via CSS. Compare con ritardo
+ * (niente lampeggi sui caricamenti brevi) e sparisce con clear().
+ */
+export function attesa() {
+  return el("div", {
+    className: "attesa",
+    attrs: { role: "status", "aria-live": "polite" },
+    children: [
+      el("span", { className: "attesa-anello", attrs: { "aria-hidden": "true" } }),
+      el("p", {
+        className: "attesa-testo",
+        children: [
+          document.createTextNode("Caricamento"),
+          el("span", { className: "attesa-punti", attrs: { "aria-hidden": "true" } }),
+        ],
+      }),
+    ],
+  });
+}
+
 /** Stato di errore con il tasto Riprova. */
 export function errore(messaggio, onRiprova) {
   return el("div", {

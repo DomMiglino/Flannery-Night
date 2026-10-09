@@ -16,7 +16,7 @@ import {
   prossimoStatoTabella,
 } from "../ordina.js";
 import { withSeason } from "../routes.js";
-import { bandiera, errore, scheletro, titolo } from "../ui.js";
+import { attesa, bandiera, errore, titolo } from "../ui.js";
 import { troncaNome } from "./classifica.js";
 import { lasciaAvviso, prendiAvviso } from "../state.js";
 import { renderEditorGiocatore, ETICHETTE_RUOLI } from "./editor_giocatore.js";
@@ -302,7 +302,7 @@ export async function renderGiocatori(root, ctx, rotta = {}) {
 
   clear(root);
   root.append(titolo("Giocatori"));
-  root.append(scheletro(8));
+  root.append(attesa());
 
   let giocatori;
   let votiMiei = [];

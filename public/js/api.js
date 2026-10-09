@@ -78,6 +78,8 @@ export const api = {
   audit: (before) => request(`/api/admin/audit${before ? `?before=${encodeURIComponent(before)}` : ""}`),
   nuovaStagione: (name) => request("/api/admin/seasons", { method: "POST", body: { name } }),
   esportaDati: () => request("/api/admin/export"),
+  squadreGiocatori: () => request("/api/admin/squadre/giocatori"),
+  componiSquadre: (formato, convocati) => request("/api/admin/squadre/proposta", { method: "POST", body: { formato, convocati } }),
   partiteGestione: (season) => request(`/api/admin/matches${season ? `?season=${encodeURIComponent(season)}` : ""}`),
   partitaGestione: (id) => request(`/api/admin/matches/${encodeURIComponent(id)}`),
   creaPartita: (partita) => request("/api/admin/matches", { method: "POST", body: partita }),
