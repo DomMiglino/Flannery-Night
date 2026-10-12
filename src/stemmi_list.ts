@@ -5,6 +5,7 @@ export const STEMMI: string[] = [
   "angelo.png",
   "antonio.png",
   "carletto.png",
+  "dom.png",
   "fabio.png",
   "frank.png",
   "gino.png",
@@ -19,5 +20,7 @@ export const STEMMI: string[] = [
   "pasquale.png",
   "peppe.png",
   "salvio.png",
+  "tanino.png",
+  "teso.png",
   "vito.png"
 ];
